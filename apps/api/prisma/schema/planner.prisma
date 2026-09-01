@@ -1,0 +1,14 @@
+model PlannerWeek {
+  id        String   @id @default(cuid())
+  userId    String
+  weekStart DateTime
+  schedule  Json
+  goals     Json
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStart])
+  @@index([userId])
+  @@map("planner_weeks")
+}

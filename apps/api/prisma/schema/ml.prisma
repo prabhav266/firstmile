@@ -1,0 +1,23 @@
+model MLLog {
+  id           String    @id @default(cuid())
+  userId       String
+  course       MLCourse
+  date         DateTime  @default(now())
+  hoursSpent   Float
+  topicCovered String?
+  notebookUrl  String?
+  projectName  String?
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("ml_logs")
+}
+
+enum MLCourse {
+  CAMPUSX
+  ANDREW_NG
+  KAGGLE
+  FAST_AI
+  CUSTOM
+}

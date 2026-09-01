@@ -1,0 +1,31 @@
+model CodingLog {
+  id             String      @id @default(cuid())
+  userId         String
+  platform       Platform
+  date           DateTime    @default(now())
+  problemsSolved Int         @default(0)
+  difficulty     Difficulty?
+  topic          String?
+  notes          String?
+
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, platform])
+  @@map("coding_logs")
+}
+
+enum Platform {
+  LEETCODE
+  CODEFORCES
+  CODECHEF
+  STRIVER_A2Z
+  BLIND75
+  NEETCODE
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}

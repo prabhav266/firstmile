@@ -1,0 +1,134 @@
+version: '3.9'
+
+services:
+  # ─────────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pathforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pathforge_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-pathforge_db}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - pathforge_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pathforge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # Express.js API Backend
+  # ─────────────────────────────────────────────
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: development
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pathforge}:${POSTGRES_PASSWORD:-pathforge_secret}@postgres:5432/${POSTGRES_DB:-pathforge_db}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-minimum-32-characters}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret-min-32-chars}
+      FRONTEND_URL: http://localhost:3000
+      ML_SERVICE_URL: http://ml:8000
+      PORT: 4000
+      NODE_ENV: development
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./apps/api/src:/app/src
+      - api_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pathforge_net
+
+  # ─────────────────────────────────────────────
+  # FastAPI ML Microservice
+  # ─────────────────────────────────────────────
+  ml:
+    build:
+      context: ./apps/ml
+      dockerfile: Dockerfile
+      target: development
+    restart: unless-stopped
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-your-gemini-api-key}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-minimum-32-characters}
+      ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost:4000","http://api:4000"]'
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/ml/src:/app/src
+      - ml_models:/app/models
+    networks:
+      - pathforge_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ─────────────────────────────────────────────
+  # Next.js Frontend
+  # ─────────────────────────────────────────────
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: development
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_ML_URL: http://localhost:8000
+      NEXT_PUBLIC_APP_NAME: PathForge AI
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pathforge}:${POSTGRES_PASSWORD:-pathforge_secret}@postgres:5432/${POSTGRES_DB:-pathforge_db}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-minimum-32-characters}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret-min-32-chars}
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web/src:/app/src
+    depends_on:
+      - api
+      - ml
+    networks:
+      - pathforge_net
+
+  # ─────────────────────────────────────────────
+  # Nginx Reverse Proxy
+  # ─────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+      - api
+      - ml
+    networks:
+      - pathforge_net
+
+networks:
+  pathforge_net:
+    driver: bridge
+
+volumes:
+  pg_data:
+  api_uploads:
+  ml_models:

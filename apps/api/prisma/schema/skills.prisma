@@ -1,0 +1,32 @@
+model Skill {
+  id         String        @id @default(cuid())
+  name       String        @unique
+  category   SkillCategory
+  userSkills UserSkill[]
+
+  @@map("skills")
+}
+
+model UserSkill {
+  id        String    @id @default(cuid())
+  userId    String
+  skillId   String
+  level     Int       @default(0)
+  updatedAt DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill     Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@map("user_skills")
+}
+
+enum SkillCategory {
+  DSA
+  DEVELOPMENT
+  ML
+  CLOUD
+  DATABASE
+  SYSTEM_DESIGN
+}

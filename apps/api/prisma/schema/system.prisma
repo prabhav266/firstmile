@@ -1,0 +1,72 @@
+model Goal {
+  id         String    @id @default(cuid())
+  userId     String
+  title      String
+  targetDate DateTime?
+  completed  Boolean   @default(false)
+  type       GoalType
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("goals")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  message   String
+  type      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+model Analytics {
+  id             String   @id @default(cuid())
+  userId         String
+  date           DateTime @default(now())
+  studyHours     Float    @default(0)
+  codingHours    Float    @default(0)
+  mlHours        Float    @default(0)
+  streak         Int      @default(0)
+  placementScore Float?
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("analytics")
+}
+
+model Recommendation {
+  id          String             @id @default(cuid())
+  userId      String
+  type        RecommendationType
+  title       String
+  description String
+  metadata    Json?
+  createdAt   DateTime           @default(now())
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("recommendations")
+}
+
+enum GoalType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum RecommendationType {
+  PROJECT
+  SKILL
+  RESOURCE
+  COMPANY
+}

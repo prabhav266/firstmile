@@ -1,0 +1,19 @@
+model Roadmap {
+  id            String   @id @default(cuid())
+  userId        String
+  targetCompany String
+  targetPackage Float
+  currentYear   Int
+  branch        String
+  knownSkills   String[]
+  dailyPlan     Json
+  weeklyPlan    Json
+  monthlyPlan   Json
+  timeline      String
+  createdAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("roadmaps")
+}

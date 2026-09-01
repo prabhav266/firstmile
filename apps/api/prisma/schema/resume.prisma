@@ -1,0 +1,29 @@
+model Resume {
+  id                 String         @id @default(cuid())
+  userId             String
+  fileName           String
+  fileUrl            String
+  filePath           String?
+  atsScore           Float?
+  grammarScore       Float?
+  resumeRating       Float?
+  missingSkills      String[]
+  weakBullets        String[]
+  projectSuggestions String[]
+  suggestions        String[]
+  analysisStatus     AnalysisStatus @default(PENDING)
+  rawText            String?
+  createdAt          DateTime       @default(now())
+
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("resumes")
+}
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}

@@ -1,0 +1,23 @@
+model Project {
+  id           String        @id @default(cuid())
+  userId       String
+  title        String
+  description  String
+  techStack    String[]
+  githubUrl    String?
+  liveUrl      String?
+  status       ProjectStatus @default(IDEA)
+  resumeImpact Int?
+  createdAt    DateTime      @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  IDEA
+  IN_PROGRESS
+  COMPLETED
+}

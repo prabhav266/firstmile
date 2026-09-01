@@ -1,0 +1,16 @@
+model InterviewSession {
+  id           String     @id @default(cuid())
+  userId       String
+  role         String
+  company      String?
+  difficulty   Difficulty
+  questions    Json
+  overallScore Float?
+  feedback     String?
+  createdAt    DateTime   @default(now())
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("interview_sessions")
+}

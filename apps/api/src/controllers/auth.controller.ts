@@ -96,13 +96,16 @@ export async function sendOtp(req: Request, res: Response, next: NextFunction) {
     });
 
     // 6. Dispatch verification email
-    await sendVerificationEmail(normalizedEmail, otpCode);
+    const mailResult = await sendVerificationEmail(normalizedEmail, otpCode);
 
     return success(res, {
       email: normalizedEmail,
       isExistingUser: !!existingUser,
       role: existingUser?.role || null,
-    }, `Verification code successfully sent to ${normalizedEmail}`);
+      devOtp: mailResult.devOtp,
+    }, mailResult.devOtp 
+      ? `Email service blocked on cloud. Your code is: ${mailResult.devOtp}` 
+      : `Verification code successfully sent to ${normalizedEmail}`);
   } catch (err) {
     next(err);
   }

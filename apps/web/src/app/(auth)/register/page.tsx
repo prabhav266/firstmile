@@ -60,7 +60,12 @@ export default function RegisterPage() {
     try {
       const res = await api.post('/api/auth/send-otp', { email, mode: 'register' });
       sounds.playToggle();
-      toast.success(`Verification code dispatched to ${email}`);
+      if (res.data?.data?.devOtp) {
+        setOtpCode(res.data.data.devOtp);
+        toast.success(`Verification Code: ${res.data.data.devOtp}`, { duration: 12000 });
+      } else {
+        toast.success(`Verification code dispatched to ${email}`);
+      }
       setStep(3);
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to send verification code';

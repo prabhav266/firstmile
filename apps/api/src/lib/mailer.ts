@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import dns from 'dns';
 import { promisify } from 'util';
+import axios from 'axios';
 
 const resolveMx = promisify(dns.resolveMx);
 
@@ -20,11 +21,11 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
       return { valid: false, error: `The domain '${domain}' is a test domain and cannot receive real emails.` };
     }
 
-    // DNS MX Lookup
+    // Live MX DNS lookup
     try {
-      const mxRecords = await resolveMx(domain);
-      if (!mxRecords || mxRecords.length === 0) {
-        return { valid: false, error: `The domain '@${domain}' does not have active mail servers (MX records).` };
+      const records = await resolveMx(domain);
+      if (!records || records.length === 0) {
+        return { valid: false, error: `The email domain '@${domain}' does not have valid mail exchange (MX) servers.` };
       }
     } catch (dnsErr: any) {
       if (dnsErr.code === 'ENOTFOUND' || dnsErr.code === 'ENODATA') {
@@ -38,116 +39,113 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
   }
 }
 
-// 2. Initialize Nodemailer Transporter
-async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; isRealSmtp: boolean }> {
+// 2. Send HTML Verification Email (Supports Resend HTTPS API, Nodemailer SMTP, and fallback)
+export async function sendVerificationEmail(
+  toEmail: string,
+  otpCode: string
+): Promise<{ success: boolean; previewUrl?: string; error?: string; devOtp?: string }> {
+  const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_USER || '"FIRST MILE" <noreply@firstmile.dev>';
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #000000; color: #ffffff; margin: 0; padding: 0; }
+        .container { max-width: 520px; margin: 40px auto; background-color: #080808; border: 1px solid #222222; border-radius: 12px; padding: 40px; }
+        .logo { font-size: 20px; font-weight: 900; letter-spacing: 3px; color: #ffffff; text-transform: uppercase; margin-bottom: 24px; border-bottom: 1px solid #1a1a1a; padding-bottom: 16px; }
+        .title { font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 8px; }
+        .desc { font-size: 13px; color: #888888; line-height: 1.6; margin-bottom: 28px; }
+        .otp-box { background-color: #121212; border: 1px solid #333333; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 28px; }
+        .otp-code { font-family: monospace; font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #ffffff; margin: 0; }
+        .footer { font-size: 11px; color: #555555; text-align: center; border-top: 1px solid #1a1a1a; padding-top: 20px; font-family: monospace; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="logo">FIRST MILE</div>
+        <div class="title">Verify Your Identity</div>
+        <div class="desc">
+          Enter this verification code in your FIRST MILE portal window to complete your authentication. This code is valid for 10 minutes.
+        </div>
+        <div class="otp-box">
+          <div class="otp-code">${otpCode}</div>
+        </div>
+        <div class="desc" style="font-size: 12px; color: #666666;">
+          If you did not request this login or registration, you can safely ignore this email.
+        </div>
+        <div class="footer">
+          FIRST MILE &bull; Where careers begin.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // 1. If Resend HTTPS API Key is provided (Recommended for Render, AWS, Vercel)
+  if (process.env.RESEND_API_KEY) {
+    try {
+      await axios.post(
+        'https://api.resend.com/emails',
+        {
+          from: process.env.EMAIL_FROM || 'FIRST MILE <onboarding@resend.dev>',
+          to: [toEmail],
+          subject: `Your FIRST MILE Verification Code: ${otpCode}`,
+          html: htmlContent,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 8000,
+        }
+      );
+      console.log(`[FIRST MILE] 🚀 REAL EMAIL SENT VIA RESEND HTTPS API to: ${toEmail}`);
+      return { success: true };
+    } catch (resendErr: any) {
+      console.error('[FIRST MILE] Resend HTTPS dispatch failed:', resendErr.response?.data || resendErr.message);
+    }
+  }
+
+  // 2. Try Nodemailer SMTP with short timeout (to prevent hanging if Render blocks port 587)
   const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
   const port = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 587;
   const user = process.env.SMTP_USER || process.env.EMAIL_USER;
   const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
 
   if (user && pass) {
-    const transporter = nodemailer.createTransport({
-      host: host || 'smtp.gmail.com',
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
-    return { transporter, isRealSmtp: true };
-  }
+    try {
+      const transporter = nodemailer.createTransport({
+        host: host || 'smtp.gmail.com',
+        port,
+        secure: port === 465,
+        auth: { user, pass },
+        connectionTimeout: 4000,
+        greetingTimeout: 4000,
+        socketTimeout: 4000,
+      });
 
-  // Fallback to auto-created Ethereal test inbox for development
-  const testAccount = await nodemailer.createTestAccount();
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    secure: false,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass,
-    },
-  });
-  return { transporter, isRealSmtp: false };
-}
+      await transporter.sendMail({
+        from: fromAddress,
+        to: toEmail,
+        subject: `Your FIRST MILE Verification Code: ${otpCode}`,
+        text: `Your FIRST MILE verification code is: ${otpCode}. It expires in 10 minutes.`,
+        html: htmlContent,
+      });
 
-// 3. Send HTML Verification Email
-export async function sendVerificationEmail(toEmail: string, otpCode: string): Promise<{ success: boolean; previewUrl?: string; error?: string }> {
-  try {
-    const { transporter, isRealSmtp } = await getTransporter();
-    const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_USER || '"FIRST MILE" <noreply@firstmile.dev>';
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #000000; color: #ffffff; padding: 24px; margin: 0; }
-          .container { max-width: 480px; margin: 0 auto; background-color: #0a0a0a; border: 1px solid #242424; border-radius: 8px; padding: 36px; }
-          .header { text-align: center; margin-bottom: 24px; }
-          .title { font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: 2px; margin: 0; text-transform: uppercase; }
-          .subtitle { font-size: 11px; color: #888888; margin-top: 4px; font-family: monospace; }
-          .otp-card { background: #000000; border: 1px solid #333333; border-radius: 6px; padding: 20px; text-align: center; margin: 24px 0; }
-          .otp-code { font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #ffffff; font-family: monospace; margin: 0; }
-          .otp-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #666666; margin-bottom: 6px; font-weight: 700; }
-          .footer { font-size: 10px; color: #555555; text-align: center; margin-top: 28px; border-top: 1px solid #1a1a1a; padding-top: 16px; font-family: monospace; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 class="title">FIRST MILE</h1>
-            <p class="subtitle">WHERE CAREERS BEGIN</p>
-          </div>
-          <p style="font-size: 13px; color: #b5b5b5; line-height: 1.6;">
-            Hello,<br/><br/>
-            Your one-time authentication code is below. Enter this code on FIRST MILE to access your workspace.
-          </p>
-          <div class="otp-card">
-            <div class="otp-label">Verification Code</div>
-            <div class="otp-code">${otpCode}</div>
-          </div>
-          <p style="font-size: 11px; color: #666666; text-align: center;">
-            This code will expire in <strong>10 minutes</strong>. If you did not request this code, please ignore this email.
-          </p>
-          <div class="footer">
-            © ${new Date().getFullYear()} FIRST MILE • Technical Career & Placement Platform
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const info = await transporter.sendMail({
-      from: fromAddress,
-      to: toEmail,
-      subject: `Your FIRST MILE Verification Code: ${otpCode}`,
-      text: `Your FIRST MILE verification code is: ${otpCode}. It expires in 10 minutes.`,
-      html: htmlContent,
-    });
-
-    const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
-
-    if (isRealSmtp) {
-      console.log(`\n================================================================`);
       console.log(`[FIRST MILE] 🚀 REAL EMAIL SENT VIA SMTP to: ${toEmail}`);
-      console.log(`[FIRST MILE] Check your inbox or spam folder!`);
-      console.log(`================================================================\n`);
-    } else {
-      console.log(`\n================================================================`);
-      console.log(`[FIRST MILE] ⚠️ REAL EMAIL NOT DISPATCHED (SMTP NOT YET CONFIGURED IN .env)`);
-      console.log(`[FIRST MILE] 🔑 YOUR VERIFICATION OTP CODE IS: ${otpCode}`);
-      if (previewUrl) {
-        console.log(`[FIRST MILE] 🔗 Instant Web Inbox Preview: ${previewUrl}`);
-      }
-      console.log(`================================================================\n`);
+      return { success: true };
+    } catch (smtpErr: any) {
+      console.warn(`[FIRST MILE] SMTP connection timed out or failed (likely cloud port block):`, smtpErr.message);
     }
-
-    return { success: true, previewUrl: previewUrl ? String(previewUrl) : undefined };
-  } catch (err: any) {
-    console.error('\n================================================================');
-    console.error('[FIRST MILE] ❌ EMAIL SENDING FAILED (SMTP Authentication Error):', err.message || err);
-    console.error(`[FIRST MILE] 🔑 YOUR ACTIVE OTP VERIFICATION CODE IS: ${otpCode}`);
-    console.error('================================================================\n');
-    return { success: false, error: err.message };
   }
+
+  // 3. Fallback: Log OTP in terminal & return code so user is NEVER blocked
+  console.log(`\n================================================================`);
+  console.log(`[FIRST MILE] 🔑 ACTIVE OTP CODE FOR ${toEmail}: ${otpCode}`);
+  console.log(`================================================================\n`);
+
+  return { success: false, devOtp: otpCode };
 }

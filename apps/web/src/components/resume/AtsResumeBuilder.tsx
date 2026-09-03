@@ -1,22 +1,15 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { motion } from 'motion/react';
 import {
   FileText,
   Download,
-  Sparkles,
-  Printer,
   Plus,
   Trash2,
-  CheckCircle,
-  FolderGit2,
-  Award,
+  Check,
   Code2,
   Briefcase,
   GraduationCap,
-  RefreshCw,
-  ExternalLink,
   Copy,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -82,7 +75,7 @@ const DEFAULT_RESUME_DATA: ResumeData = {
   },
   experience: [
     {
-      company: 'PathForge AI Technologies',
+      company: 'First Mile Systems',
       role: 'Software Engineering Intern',
       location: 'Remote',
       date: 'May 2025 - July 2025',
@@ -99,68 +92,56 @@ const DEFAULT_RESUME_DATA: ResumeData = {
       techStack: 'Python, FastAPI, FAISS, LangChain, Docker, PostgreSQL',
       link: 'github.com/alexmorgan/vector-rag-engine',
       bullets: [
-        'Engineered an event-driven RAG pipeline converting technical PDF documentation into FAISS vector embeddings.',
-        'Optimized semantic similarity cosine search retrieval, boosting document question-answering accuracy to 94.8%.',
-        'Containerized multi-service architecture using Docker Compose for automated CI/CD cloud deployment.',
+        'Built a semantic search microservice indexing 200k+ technical engineering docs using FAISS vector indexing.',
+        'Engineered token stream SSE pipeline reducing TTFT (Time To First Token) from 1,200ms to 280ms.',
       ],
     },
     {
-      title: 'Distributed Rate-Limiting API Gateway',
-      techStack: 'Node.js, TypeScript, Redis, Nginx, Docker',
-      link: 'github.com/alexmorgan/rate-limiter-gateway',
+      title: 'High-Concurrency Distributed Rate Limiter',
+      techStack: 'Go, Redis, gRPC, Docker, Prometheus',
+      link: 'github.com/alexmorgan/go-rate-limiter',
       bullets: [
-        'Built a sliding-window counter and token-bucket rate limiter handling 50,000+ simulated requests per second.',
-        'Integrated Prometheus metrics and Grafana dashboards for real-time telemetry and error rate monitoring.',
+        'Developed a Sliding Window Log rate limiter handling 25,000+ req/sec across distributed cluster instances.',
+        'Maintained sub-2ms P99 latency overhead with atomic Redis Lua scripts.',
       ],
     },
   ],
   achievements: [
-    'Solved 250+ Data Structures & Algorithms problems across LeetCode and Codeforces (Top 8% worldwide).',
-    'Secured 1st Place out of 120 teams in National Inter-College Hackathon 2025.',
+    'Knight on LeetCode (Max Rating: 1980+, Top 3% globally with 450+ verified problems solved).',
+    'Global Rank 240 / 18,000 in Codeforces Round 912 (Div. 2).',
+    'Winner - Inter-College Hackathon 2024 (Best Developer Infrastructure track).',
   ],
 };
 
-const ACTION_VERBS = [
-  'Engineered',
-  'Architected',
-  'Optimized',
-  'Spearheaded',
-  'Accelerated',
-  'Automated',
-  'Formulated',
-  'Scaled',
-];
-
 export function AtsResumeBuilder() {
   const [data, setData] = useState<ResumeData>(DEFAULT_RESUME_DATA);
-  const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    sounds.playChime();
+    sounds.playToggle();
     window.print();
   };
 
   const handleCopyText = () => {
-    const textContent = `
+    const textResume = `
 ${data.fullName}
 ${data.email} | ${data.phone} | ${data.location}
-GitHub: ${data.github} | LinkedIn: ${data.linkedin} | LeetCode: ${data.leetcode}
+${data.github} | ${data.linkedin} | ${data.leetcode}
 
 EDUCATION
-${data.education.map((e) => `${e.institution} — ${e.degree} (${e.year}) | ${e.score}`).join('\n')}
+${data.education.map((e) => `${e.institution} - ${e.degree} (${e.year}) | ${e.score}`).join('\n')}
 
 TECHNICAL SKILLS
-- Languages: ${data.skills.languages}
-- Frameworks: ${data.skills.frameworks}
-- Developer Tools: ${data.skills.developerTools}
-- Core Concepts: ${data.skills.coreConcepts}
+Languages: ${data.skills.languages}
+Frameworks: ${data.skills.frameworks}
+Developer Tools: ${data.skills.developerTools}
+Core Concepts: ${data.skills.coreConcepts}
 
-EXPERIENCE
+WORK EXPERIENCE
 ${data.experience
   .map(
     (exp) =>
-      `${exp.role} | ${exp.company} (${exp.date})\n${exp.bullets.map((b) => `• ${b}`).join('\n')}`
+      `${exp.role} - ${exp.company} (${exp.date})\n${exp.bullets.map((b) => `• ${b}`).join('\n')}`
   )
   .join('\n\n')}
 
@@ -176,319 +157,236 @@ ACHIEVEMENTS
 ${data.achievements.map((a) => `• ${a}`).join('\n')}
     `.trim();
 
-    navigator.clipboard.writeText(textContent);
+    navigator.clipboard.writeText(textResume);
+    sounds.playChime();
     toast.success('Resume plain text copied to clipboard!');
   };
 
-  const autoPolishBullet = (projIndex: number, bulletIndex: number) => {
-    sounds.playTick();
-    const current = data.projects[projIndex].bullets[bulletIndex];
-    const randomVerb = ACTION_VERBS[Math.floor(Math.random() * ACTION_VERBS.length)];
-    let polished = current;
-
-    if (!current.startsWith(randomVerb)) {
-      polished = `${randomVerb} and deployed ${current.charAt(0).toLowerCase() + current.slice(1)}, improving operational throughput by 35%.`;
-    }
-
-    const updatedProjects = [...data.projects];
-    updatedProjects[projIndex].bullets[bulletIndex] = polished;
-    setData({ ...data, projects: updatedProjects });
-    toast.success('Bullet point polished with ATS action verbs!');
+  const addExperienceBullet = (expIdx: number) => {
+    const next = { ...data };
+    next.experience[expIdx].bullets.push('Quantified action item with impact...');
+    setData(next);
   };
 
+  const removeExperienceBullet = (expIdx: number, bIdx: number) => {
+    const next = { ...data };
+    next.experience[expIdx].bullets.splice(bIdx, 1);
+    setData(next);
+  };
+
+  const addProjectBullet = (projIdx: number) => {
+    const next = { ...data };
+    next.projects[projIdx].bullets.push('Architected feature with measurable performance impact...');
+    setData(next);
+  };
+
+  const removeProjectBullet = (projIdx: number, bIdx: number) => {
+    const next = { ...data };
+    next.projects[projIdx].bullets.splice(bIdx, 1);
+    setData(next);
+  };
+
+  const inputClass = 'w-full bg-[#000000] border border-[#242424] rounded py-1 px-2.5 text-xs text-[#ffffff] focus:outline-none focus:border-[#ffffff] font-mono';
+
   return (
-    <div className="space-y-6">
-      {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#18181b] border border-[rgba(255,255,255,0.08)] rounded-2xl p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#8b5cf6]/20 border border-[#8b5cf6]/40 flex items-center justify-center text-[#8b5cf6]">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-white uppercase tracking-tight font-sans">
-              1-Click ATS Resume Builder
-            </h2>
-            <p className="text-xs text-[#a1a1aa] font-sans">
-              Standard single-page Harvard/Jake format pre-filled with verified PathForge data
-            </p>
-          </div>
+    <div className="space-y-6 font-sans">
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#080808] border border-[#1a1a1a] rounded-lg p-4">
+        <div>
+          <h2 className="text-sm font-bold text-white uppercase tracking-tight font-mono">
+            Harvard ATS Single-Page Builder
+          </h2>
+          <p className="text-xs text-[#888888] font-mono mt-0.5">
+            100% parse-guaranteed format optimized for Taleo, Workday, Greenhouse & Lever ATS engines
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleCopyText}
-            className="px-3.5 py-2 rounded-xl bg-[#111827] border border-[rgba(255,255,255,0.08)] text-xs font-semibold text-[#cbd5e1] hover:text-white flex items-center gap-2 transition-colors"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Copy Text</span>
+        <div className="flex items-center gap-2">
+          <button onClick={handleCopyText} className="btn-secondary py-1.5 px-3 text-xs gap-1.5 font-mono">
+            <Copy size={13} />
+            <span>Copy Text</span>
           </button>
-
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)]"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download PDF</span>
+          <button onClick={handlePrint} className="btn-primary py-1.5 px-4 text-xs gap-1.5 font-mono">
+            <Download size={13} />
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
 
       {/* Main Grid: Left Editor + Right Paper Preview */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Column: Form Editor */}
-        <div className="xl:col-span-5 space-y-6">
-          
-          {/* 1. Contact Information */}
-          <div className="bg-[#18181b]/80 border border-[rgba(255,255,255,0.08)] rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.06)] pb-3">
-              <Code2 className="w-4 h-4 text-[#3b82f6]" />
-              <h3 className="text-xs font-bold uppercase text-white font-mono">01. Contact Details</h3>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="xl:col-span-5 space-y-4 font-mono text-xs">
+          {/* Contact Details */}
+          <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-4 space-y-3">
+            <h3 className="font-bold text-[#ffffff] uppercase tracking-wider text-xs pb-2 border-b border-[#1a1a1a]">
+              01. Contact Information
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">Full Name</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">Full Name</label>
                 <input
                   type="text"
                   value={data.fullName}
                   onChange={(e) => setData({ ...data, fullName: e.target.value })}
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">Email</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">Email</label>
                 <input
                   type="email"
                   value={data.email}
                   onChange={(e) => setData({ ...data, email: e.target.value })}
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">Phone</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">Phone</label>
                 <input
                   type="text"
                   value={data.phone}
                   onChange={(e) => setData({ ...data, phone: e.target.value })}
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">Location</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">Location</label>
                 <input
                   type="text"
                   value={data.location}
                   onChange={(e) => setData({ ...data, location: e.target.value })}
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">GitHub Handle</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">GitHub</label>
                 <input
                   type="text"
                   value={data.github}
                   onChange={(e) => setData({ ...data, github: e.target.value })}
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">LeetCode Handle</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">LeetCode</label>
                 <input
                   type="text"
                   value={data.leetcode}
                   onChange={(e) => setData({ ...data, leetcode: e.target.value })}
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
             </div>
           </div>
 
-          {/* 2. Technical Skills */}
-          <div className="bg-[#18181b]/80 border border-[rgba(255,255,255,0.08)] rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.06)] pb-3">
-              <Sparkles className="w-4 h-4 text-[#8b5cf6]" />
-              <h3 className="text-xs font-bold uppercase text-white font-mono">02. Technical Skills Matrix</h3>
-            </div>
-
-            <div className="space-y-3 text-xs">
+          {/* Technical Skills */}
+          <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-4 space-y-3">
+            <h3 className="font-bold text-[#ffffff] uppercase tracking-wider text-xs pb-2 border-b border-[#1a1a1a]">
+              02. Technical Skills
+            </h3>
+            <div className="space-y-2">
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">Languages</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">Languages</label>
                 <input
                   type="text"
                   value={data.skills.languages}
                   onChange={(e) =>
-                    setData({
-                      ...data,
-                      skills: { ...data.skills, languages: e.target.value },
-                    })
+                    setData({ ...data, skills: { ...data.skills, languages: e.target.value } })
                   }
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">Frameworks & Libraries</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">Frameworks</label>
                 <input
                   type="text"
                   value={data.skills.frameworks}
                   onChange={(e) =>
-                    setData({
-                      ...data,
-                      skills: { ...data.skills, frameworks: e.target.value },
-                    })
+                    setData({ ...data, skills: { ...data.skills, frameworks: e.target.value } })
                   }
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">Developer Tools & Databases</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">Developer Tools</label>
                 <input
                   type="text"
                   value={data.skills.developerTools}
                   onChange={(e) =>
-                    setData({
-                      ...data,
-                      skills: { ...data.skills, developerTools: e.target.value },
-                    })
+                    setData({ ...data, skills: { ...data.skills, developerTools: e.target.value } })
                   }
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] mb-1 block">Core Computer Science</label>
+                <label className="text-[10px] text-[#888888] uppercase block mb-0.5">Core Computer Science</label>
                 <input
                   type="text"
                   value={data.skills.coreConcepts}
                   onChange={(e) =>
-                    setData({
-                      ...data,
-                      skills: { ...data.skills, coreConcepts: e.target.value },
-                    })
+                    setData({ ...data, skills: { ...data.skills, coreConcepts: e.target.value } })
                   }
-                  className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-lg p-2 text-white focus:outline-none focus:border-[#8b5cf6]"
+                  className={inputClass}
                 />
               </div>
             </div>
           </div>
-
-          {/* 3. Projects with AI Polish Button */}
-          <div className="bg-[#18181b]/80 border border-[rgba(255,255,255,0.08)] rounded-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] pb-3">
-              <div className="flex items-center gap-2">
-                <FolderGit2 className="w-4 h-4 text-[#10b981]" />
-                <h3 className="text-xs font-bold uppercase text-white font-mono">03. High-Impact Projects</h3>
-              </div>
-              <span className="text-[10px] text-[#8b5cf6] font-mono font-bold">1-Click AI Polish</span>
-            </div>
-
-            <div className="space-y-4">
-              {data.projects.map((proj, pIdx) => (
-                <div key={pIdx} className="p-3 bg-[#09090b] border border-[rgba(255,255,255,0.06)] rounded-xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <input
-                      type="text"
-                      value={proj.title}
-                      onChange={(e) => {
-                        const updated = [...data.projects];
-                        updated[pIdx].title = e.target.value;
-                        setData({ ...data, projects: updated });
-                      }}
-                      className="bg-transparent text-xs font-bold text-white border-b border-transparent focus:border-[#8b5cf6] focus:outline-none"
-                    />
-                    <span className="text-[10px] font-mono text-[#a1a1aa]">{proj.techStack.split(',')[0]}</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {proj.bullets.map((bullet, bIdx) => (
-                      <div key={bIdx} className="flex items-start gap-2">
-                        <span className="text-[#a1a1aa] mt-1.5 text-xs">•</span>
-                        <textarea
-                          rows={2}
-                          value={bullet}
-                          onChange={(e) => {
-                            const updated = [...data.projects];
-                            updated[pIdx].bullets[bIdx] = e.target.value;
-                            setData({ ...data, projects: updated });
-                          }}
-                          className="w-full bg-[#18181b] border border-[rgba(255,255,255,0.06)] rounded-lg p-2 text-xs text-[#cbd5e1] focus:outline-none focus:border-[#8b5cf6] resize-none"
-                        />
-                        <button
-                          onClick={() => autoPolishBullet(pIdx, bIdx)}
-                          title="AI Polish this bullet with action verbs & metric impact"
-                          className="p-1.5 bg-[#8b5cf6]/20 border border-[#8b5cf6]/40 hover:bg-[#8b5cf6] text-[#8b5cf6] hover:text-white rounded-lg transition-colors shrink-0 mt-1"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
-        {/* Right Column: Live ATS Single-Page Paper Preview */}
-        <div className="xl:col-span-7 flex flex-col items-center">
-          
-          <div className="w-full mb-3 flex items-center justify-between px-2">
-            <span className="text-xs font-mono text-[#a1a1aa] uppercase font-bold">
-              ATS Standard Single-Page Preview
-            </span>
-            <span className="text-[11px] font-mono text-[#10b981] font-bold">
-              ✓ 100% ATS Parser Compatible
-            </span>
-          </div>
-
-          {/* Printable White Paper Document */}
+        {/* Right Column: Harvard Single-Page Paper Preview */}
+        <div className="xl:col-span-7 flex justify-center">
           <div
-            ref={printRef}
             id="printable-resume"
-            className="w-full max-w-[800px] min-h-[1050px] bg-white text-black p-8 md:p-12 shadow-[0_24px_64px_rgba(0,0,0,0.8)] rounded-sm font-serif leading-normal select-text"
-            style={{ color: '#000000', backgroundColor: '#ffffff' }}
+            ref={printRef}
+            className="w-full max-w-[760px] bg-white text-black p-8 sm:p-10 shadow-2xl rounded font-serif text-[11px] leading-relaxed border border-[#333333] select-text"
           >
-            {/* Header / Name */}
-            <div className="text-center space-y-1 pb-3 border-b-2 border-black">
-              <h1 className="text-2xl font-bold uppercase tracking-wide font-sans">{data.fullName}</h1>
-              <div className="text-[11px] font-sans text-gray-700 flex flex-wrap items-center justify-center gap-2">
-                <span>{data.email}</span>
-                <span>•</span>
+            {/* Header */}
+            <div className="text-center border-b-2 border-black pb-3">
+              <h1 className="text-2xl font-bold uppercase tracking-wider font-sans text-black">
+                {data.fullName}
+              </h1>
+              <div className="text-[11px] text-gray-700 font-sans mt-1 space-x-2">
                 <span>{data.phone}</span>
+                <span>•</span>
+                <span>{data.email}</span>
                 <span>•</span>
                 <span>{data.location}</span>
               </div>
-              <div className="text-[11px] font-sans text-blue-800 flex flex-wrap items-center justify-center gap-2 pt-0.5">
-                <span>{data.github}</span>
-                <span>•</span>
-                <span>{data.linkedin}</span>
-                <span>•</span>
-                <span>{data.leetcode}</span>
+              <div className="text-[10.5px] text-gray-800 font-sans mt-0.5 space-x-3">
+                <span className="font-semibold">{data.github}</span>
+                <span>|</span>
+                <span className="font-semibold">{data.linkedin}</span>
+                <span>|</span>
+                <span className="font-semibold">{data.leetcode}</span>
               </div>
             </div>
 
             {/* Education */}
-            <div className="mt-4 space-y-1.5">
+            <div className="mt-4 space-y-1">
               <h2 className="text-xs font-bold uppercase font-sans tracking-wider text-black border-b border-black pb-0.5">
                 Education
               </h2>
               {data.education.map((edu, idx) => (
-                <div key={idx} className="flex items-center justify-between text-[11px] font-sans">
+                <div key={idx} className="flex justify-between items-start text-[11px] font-sans">
                   <div>
-                    <strong className="font-bold text-black">{edu.institution}</strong> — <span>{edu.degree}</span>
+                    <strong className="font-bold text-black">{edu.institution}</strong>
+                    <div className="text-gray-800 italic">{edu.degree}</div>
                   </div>
                   <div className="text-right">
-                    <span className="text-gray-800 font-medium">{edu.score}</span> | <span className="text-gray-600">{edu.year}</span>
+                    <span className="text-gray-700">{edu.year}</span>
+                    <div className="font-semibold text-black">{edu.score}</div>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Technical Skills */}
-            <div className="mt-4 space-y-1.5">
+            <div className="mt-4 space-y-1">
               <h2 className="text-xs font-bold uppercase font-sans tracking-wider text-black border-b border-black pb-0.5">
                 Technical Skills
               </h2>
-              <div className="text-[11px] font-sans space-y-0.5 leading-relaxed">
+              <div className="text-[11px] font-sans space-y-0.5 text-gray-800">
                 <div>
                   <strong className="font-bold text-black">Languages:</strong> {data.skills.languages}
                 </div>
@@ -496,10 +394,10 @@ ${data.achievements.map((a) => `• ${a}`).join('\n')}
                   <strong className="font-bold text-black">Frameworks & Libraries:</strong> {data.skills.frameworks}
                 </div>
                 <div>
-                  <strong className="font-bold text-black">Developer Tools & Databases:</strong> {data.skills.developerTools}
+                  <strong className="font-bold text-black">Tools & Infrastructure:</strong> {data.skills.developerTools}
                 </div>
                 <div>
-                  <strong className="font-bold text-black">Core Computer Science:</strong> {data.skills.coreConcepts}
+                  <strong className="font-bold text-black">Core CS:</strong> {data.skills.coreConcepts}
                 </div>
               </div>
             </div>
@@ -527,7 +425,7 @@ ${data.achievements.map((a) => `• ${a}`).join('\n')}
             </div>
 
             {/* Projects */}
-            <div className="mt-4 space-y-2.5">
+            <div className="mt-4 space-y-2">
               <h2 className="text-xs font-bold uppercase font-sans tracking-wider text-black border-b border-black pb-0.5">
                 Key Technical Projects
               </h2>
@@ -537,7 +435,7 @@ ${data.achievements.map((a) => `• ${a}`).join('\n')}
                     <div>
                       <strong className="font-bold text-black">{proj.title}</strong> | <span className="italic text-gray-700">{proj.techStack}</span>
                     </div>
-                    <span className="text-blue-800 text-[10px]">{proj.link}</span>
+                    <span className="text-gray-800 text-[10px]">{proj.link}</span>
                   </div>
                   <ul className="list-disc list-inside text-[10.5px] font-sans text-gray-900 space-y-0.5 pl-1 leading-snug">
                     {proj.bullets.map((b, bIdx) => (
@@ -549,7 +447,7 @@ ${data.achievements.map((a) => `• ${a}`).join('\n')}
             </div>
 
             {/* Achievements */}
-            <div className="mt-4 space-y-1.5">
+            <div className="mt-4 space-y-1">
               <h2 className="text-xs font-bold uppercase font-sans tracking-wider text-black border-b border-black pb-0.5">
                 Competitive Programming & Achievements
               </h2>
@@ -561,10 +459,9 @@ ${data.achievements.map((a) => `• ${a}`).join('\n')}
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* Print Stylesheet for 1-Page PDF Export */}
+      {/* Print Stylesheet */}
       <style jsx global>{`
         @media print {
           body * {

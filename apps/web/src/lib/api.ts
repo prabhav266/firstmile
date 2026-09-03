@@ -17,15 +17,24 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     
     // If auth token expired and request hasn't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/api/auth/login') {
+    if (
+      (error.response?.status === 401 || (error.response?.status === 404 && originalRequest?.url?.includes('/api/auth/me'))) &&
+      !originalRequest?._retry &&
+      !originalRequest?.url?.includes('/api/auth/login') &&
+      !originalRequest?.url?.includes('/api/auth/send-otp') &&
+      !originalRequest?.url?.includes('/api/auth/verify-otp')
+    ) {
       originalRequest._retry = true;
       try {
         await axios.post(`${NEXT_PUBLIC_API_URL}/api/auth/refresh`, {}, { withCredentials: true });
         return api(originalRequest);
       } catch (err) {
-        // Refresh token failed -> redirect to login
+        // Stale cookie / user no longer exists in DB
         if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+          localStorage.removeItem('pathforge-career-os-gamification');
+          if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register') && window.location.pathname !== '/') {
+            window.location.href = '/login';
+          }
         }
       }
     }

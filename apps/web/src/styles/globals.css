@@ -1,22 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: 'Inter', sans-serif;
-  --font-display: 'Inter', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   --color-background: var(--background);
   --color-surface: var(--surface);
-  --color-card: var(--card);
+  --color-surface-hover: var(--surface-hover);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
 
   --color-primary: var(--primary);
-  --color-primary-glow: var(--primary-glow);
-  --color-accent: var(--accent);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-danger: var(--danger);
+  --color-primary-foreground: var(--primary-foreground);
 
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
@@ -24,77 +21,253 @@
 }
 
 @layer base {
-  :root {
-    --background: #09090b;
-    --surface: #111827;
-    --card: #18181b;
-    --border: rgba(255, 255, 255, 0.08);
+  /* Dark Mode Default (Pitch Black Luxury) */
+  :root, .dark {
+    --background: #000000;
+    --surface: #080808;
+    --surface-hover: #121212;
+    --border: #1a1a1a;
+    --border-subtle: #242424;
 
-    --primary: #3b82f6;
-    --primary-glow: #2563eb;
-    --accent: #8b5cf6;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
+    --primary: #ffffff;
+    --primary-foreground: #000000;
 
-    --text-primary: #fafafa;
-    --text-secondary: #cbd5e1;
-    --text-muted: #a1a1aa;
+    --text-primary: #ffffff;
+    --text-secondary: #b5b5b5;
+    --text-muted: #666666;
+  }
+
+  /* Light Mode (Paper White Minimalist Inversion) */
+  .light {
+    --background: #ffffff;
+    --surface: #f4f4f5;
+    --surface-hover: #e4e4e7;
+    --border: #e4e4e7;
+    --border-subtle: #d4d4d8;
+
+    --primary: #000000;
+    --primary-foreground: #ffffff;
+
+    --text-primary: #000000;
+    --text-secondary: #52525b;
+    --text-muted: #71717a;
   }
 
   body {
     background-color: var(--background);
     color: var(--text-primary);
     font-family: var(--font-sans);
+    letter-spacing: -0.01em;
     overflow-x: hidden;
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
 }
 
-/* Premium clean SaaS card layout */
-.glass-card {
-  background-color: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+/* ─────────────────────────────────────────────────────────────
+   COMPLETE DUAL-MODE INVERSION MAPPINGS
+   When .light is active on <html>, invert all monochrome elements
+   ───────────────────────────────────────────────────────────── */
+
+.light {
+  color-scheme: light;
 }
 
-.glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
+/* Background Inversions */
+.light [class*="bg-[#000000]"],
+.light [class*="bg-black"] {
+  background-color: #ffffff !important;
 }
 
-.text-gradient {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.light [class*="bg-[#050505]"],
+.light [class*="bg-[#080808]"],
+.light [class*="bg-[#0a0a0a]"],
+.light [class*="bg-[#0d0d0d]"] {
+  background-color: #f4f4f5 !important;
 }
 
-.glow-button {
-  background-color: var(--primary);
+.light [class*="bg-[#111111]"],
+.light [class*="bg-[#121212]"],
+.light [class*="bg-[#141414]"],
+.light [class*="bg-[#181818]"] {
+  background-color: #e4e4e7 !important;
+}
+
+/* Text Color Inversions */
+.light [class*="text-[#ffffff]"],
+.light [class*="text-white"],
+.light [class*="text-[#f9fafb]"] {
+  color: #000000 !important;
+}
+
+.light [class*="text-[#b5b5b5]"],
+.light [class*="text-[#888888]"],
+.light [class*="text-[#cbd5e1]"],
+.light [class*="text-[#94a3b8]"] {
+  color: #52525b !important;
+}
+
+.light [class*="text-[#666666]"],
+.light [class*="text-[#444444]"] {
+  color: #71717a !important;
+}
+
+/* Border Color Inversions */
+.light [class*="border-[#1a1a1a]"],
+.light [class*="border-[#1e1e1e]"] {
+  border-color: #e4e4e7 !important;
+}
+
+.light [class*="border-[#242424]"],
+.light [class*="border-[#27272a]"],
+.light [class*="border-[#333333]"] {
+  border-color: #d4d4d8 !important;
+}
+
+/* Input Fields Inversion */
+.light input,
+.light select,
+.light textarea {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #d4d4d8 !important;
+}
+
+.light input:focus,
+.light select:focus,
+.light textarea:focus {
+  border-color: #000000 !important;
+}
+
+/* Buttons Inversion */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  color: #000000;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  padding: 0.625rem 1.25rem;
+  border-radius: 6px;
+  transition: all 0.15s ease-in-out;
+  border: 1px solid #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: #e5e5e5;
+  border-color: #e5e5e5;
+}
+
+.light .btn-primary {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: #000000 !important;
+}
+
+.light .btn-primary:hover {
+  background-color: #27272a !important;
+  border-color: #27272a !important;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000000;
   color: #ffffff;
-  border-radius: 12px;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  padding: 0.625rem 1.25rem;
+  border-radius: 6px;
+  border: 1px solid #242424;
+  transition: all 0.15s ease-in-out;
 }
 
-.glow-button:hover {
-  background-color: var(--primary-glow);
+.btn-secondary:hover {
+  border-color: #ffffff;
+  background-color: #0d0d0d;
 }
 
-.glow-button:active {
-  transform: scale(0.98);
+.light .btn-secondary {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #d4d4d8 !important;
 }
 
-/* Custom minimal scrollbar */
+.light .btn-secondary:hover {
+  border-color: #000000 !important;
+  background-color: #f4f4f5 !important;
+}
+
+/* Nav Item active indicator in light mode */
+.light aside {
+  background-color: #ffffff !important;
+  border-color: #e4e4e7 !important;
+}
+
+.light header {
+  background-color: #ffffff !important;
+  border-color: #e4e4e7 !important;
+}
+
+.light nav {
+  border-color: #e4e4e7 !important;
+}
+
+/* Editorial Minimalist Container */
+.editorial-container {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+/* Custom minimal monochrome scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: var(--border-subtle);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--text-muted);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   LENIS SMOOTH SCROLL ENGINE
+   ───────────────────────────────────────────────────────────── */
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+/* Optional: Clean subtle cursor behavior for desktop fine pointers */
+@media (pointer: fine) {
+  body {
+    cursor: default;
+  }
+}
+

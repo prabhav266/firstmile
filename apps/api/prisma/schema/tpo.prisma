@@ -1,0 +1,24 @@
+model CampusDrive {
+  id               String      @id @default(cuid())
+  companyName      String
+  role             String
+  packageLpa       Float
+  driveDate        DateTime
+  minReadinessCut  Float       @default(70.0)
+  minLeetCodeCut   Int         @default(100)
+  minAtsCut        Float       @default(70.0)
+  status           DriveStatus @default(UPCOMING)
+  eligibleBranches String[]    @default(["CSE", "IT", "AI/DS", "ECE"])
+  description      String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@map("campus_drives")
+}
+
+enum DriveStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}

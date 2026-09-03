@@ -6,11 +6,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { 
-  LayoutDashboard, FileText, Compass, Code, Brain, 
+  LayoutDashboard, FileText, Compass, Code,
   Briefcase, Star, Calendar, MessageSquare, BarChart, 
-  Settings, ShieldAlert, LogOut
+  Settings, ShieldAlert, LogOut, Building2, Users, User
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useGamificationStore } from '@/lib/gamification';
 
 interface NavItem {
   name: string;
@@ -18,36 +19,68 @@ interface NavItem {
   icon: React.ComponentType<any>;
 }
 
-const navItems: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Resume Analyzer', href: '/dashboard/resume', icon: FileText },
-  { name: 'Roadmap Generator', href: '/dashboard/roadmap', icon: Compass },
+// 1. Student Navigation Menu (Clean & Laser-Focused on Placements)
+const STUDENT_NAV: NavItem[] = [
+  { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Coding Tracker', href: '/dashboard/coding', icon: Code },
-  { name: 'ML Learning Tracker', href: '/dashboard/ml-tracker', icon: Brain },
-  { name: 'Projects Recommend', href: '/dashboard/projects', icon: Briefcase },
+  { name: 'Voice Mock Screener', href: '/dashboard/interview', icon: MessageSquare },
+  { name: 'Resume Analyzer', href: '/dashboard/resume', icon: FileText },
+  { name: 'Career Roadmap', href: '/dashboard/roadmap', icon: Compass },
+  { name: 'Portfolio Projects', href: '/dashboard/projects', icon: Briefcase },
   { name: 'Placement Readiness', href: '/dashboard/readiness', icon: Star },
   { name: 'Weekly Planner', href: '/dashboard/planner', icon: Calendar },
-  { name: 'AI Mock Interview', href: '/dashboard/interview', icon: MessageSquare },
-  { name: 'Skill Graph', href: '/dashboard/skills', icon: Settings },
+  { name: 'Skill Matrix', href: '/dashboard/skills', icon: Settings },
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart },
+  { name: 'Profile Settings', href: '/dashboard/profile', icon: User },
+];
+
+// 2. Recruiter Navigation Menu (Monochrome Talent Search)
+const RECRUITER_NAV: NavItem[] = [
+  { name: 'Talent Discovery', href: '/dashboard/recruiter', icon: Users },
+  { name: 'Resume Auditor', href: '/dashboard/resume', icon: FileText },
+  { name: 'Voice Screener Suite', href: '/dashboard/interview', icon: MessageSquare },
+  { name: 'Talent Analytics', href: '/dashboard/analytics', icon: BarChart },
+  { name: 'Profile Settings', href: '/dashboard/profile', icon: User },
+];
+
+// 3. University TPO Navigation Menu (Monochrome Placement Center)
+const TPO_NAV: NavItem[] = [
+  { name: 'Placement Cell', href: '/dashboard/tpo', icon: Building2 },
+  { name: 'Mock Screener Center', href: '/dashboard/interview', icon: MessageSquare },
+  { name: 'Resume Auditor', href: '/dashboard/resume', icon: FileText },
+  { name: 'Cohort Analytics', href: '/dashboard/analytics', icon: BarChart },
+  { name: 'Profile Settings', href: '/dashboard/profile', icon: User },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Fetch actual user profile for top greeting / bottom avatar
+  // Fetch actual user profile
   const { data: userProfile } = useQuery({
     queryKey: ['userProfile'],
     queryFn: () => api.get('/api/auth/me'),
   });
 
   const user = userProfile?.data?.data || {};
-  const isAdmin = user.role === 'ADMIN';
+  const role = (user.role || 'STUDENT') as 'STUDENT' | 'RECRUITER' | 'TPO' | 'ADMIN';
+  const isAdmin = role === 'ADMIN';
+
+  // Select navigation items by role
+  let navItems = STUDENT_NAV;
+  let homeRoute = '/dashboard';
+
+  if (role === 'RECRUITER') {
+    navItems = RECRUITER_NAV;
+    homeRoute = '/dashboard/recruiter';
+  } else if (role === 'TPO') {
+    navItems = TPO_NAV;
+    homeRoute = '/dashboard/tpo';
+  }
 
   // Get initials for avatar
   const getInitials = (name: string) => {
-    if (!name) return 'ST';
+    if (!name) return 'FM';
     return name
       .split(' ')
       .map((n) => n[0])
@@ -59,36 +92,46 @@ export function Sidebar() {
   const handleLogout = async () => {
     try {
       await api.post('/api/auth/logout');
-      router.push('/login');
     } catch (err) {
       console.error(err);
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('pathforge-career-os-gamification');
+      }
+      useGamificationStore.getState().resetProgress();
       router.push('/login');
+      router.refresh();
     }
   };
 
   return (
-    <aside className="h-screen fixed left-0 top-0 z-40 border-r border-[rgba(255,255,255,0.08)] bg-[#0f172a] flex flex-col justify-between w-60">
-      {/* Top Header */}
+    <aside className="h-screen fixed left-0 top-0 z-40 border-r border-[#1a1a1a] bg-[#000000] flex flex-col justify-between w-60 font-sans select-none">
+      {/* Top Header & Brand Wordmark */}
       <div>
-        <div className="flex items-center justify-between px-5 py-5 border-b border-[rgba(255,255,255,0.08)]">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="font-sans font-bold text-sm tracking-wider text-[#3b82f6]">PATHFORGE AI</span>
+        <div className="px-5 py-4 border-b border-[#1a1a1a] flex items-center justify-between">
+          <Link href={homeRoute} className="flex items-center gap-2 group">
+            <span className="font-display font-black text-sm tracking-widest text-[#ffffff] uppercase group-hover:text-[#b5b5b5] transition-colors">
+              FIRST MILE
+            </span>
           </Link>
+          <span className="px-2 py-0.5 rounded border border-[#27272a] bg-[#0d0d0d] text-[9px] font-mono font-bold uppercase tracking-wider text-[#b5b5b5]">
+            {role}
+          </span>
         </div>
 
         {/* Navigation Items */}
-        <nav className="px-3 py-4 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <nav className="px-3 py-4 space-y-0.5 overflow-y-auto max-h-[calc(100vh-140px)]">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link key={item.name} href={item.href} className="block">
                 <div className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-xs transition-all cursor-pointer",
+                  "flex items-center gap-3 px-3 py-2 rounded-md font-medium text-xs transition-all cursor-pointer",
                   isActive 
-                    ? "text-[#f9fafb] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.04)]" 
-                    : "text-[#94a3b8] hover:text-[#f9fafb] hover:bg-[rgba(255,255,255,0.03)]"
+                    ? "text-[#ffffff] bg-[#121212] border border-[#242424]" 
+                    : "text-[#888888] hover:text-[#ffffff] hover:bg-[#0a0a0a]"
                 )}>
-                  <item.icon className={cn("w-4 h-4", isActive ? "text-[#3b82f6]" : "text-[#94a3b8]")} />
+                  <item.icon className={cn("w-3.5 h-3.5", isActive ? "text-[#ffffff]" : "text-[#666666]")} />
                   <span>{item.name}</span>
                 </div>
               </Link>
@@ -96,36 +139,44 @@ export function Sidebar() {
           })}
 
           {isAdmin && (
-            <Link href="/admin" className="block pt-3 border-t border-[rgba(255,255,255,0.08)]">
+            <Link href="/admin" className="block pt-3 border-t border-[#1a1a1a] mt-3">
               <div className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-xs text-[#8b5cf6] hover:bg-[rgba(139,92,246,0.05)] transition-all",
-                pathname === '/admin' ? "bg-[rgba(139,92,246,0.08)] border border-[rgba(139,92,246,0.15)]" : ""
+                "flex items-center gap-3 px-3 py-2 rounded-md font-medium text-xs text-[#b5b5b5] hover:text-[#ffffff] hover:bg-[#0a0a0a] transition-all",
+                pathname === '/admin' ? "bg-[#121212] border border-[#242424] text-white" : ""
               )}>
-                <ShieldAlert className="w-4 h-4" />
-                <span>Admin Panel</span>
+                <ShieldAlert className="w-3.5 h-3.5 text-[#888888]" />
+                <span>Admin Console</span>
               </div>
             </Link>
           )}
         </nav>
       </div>
 
-      {/* User profile & logout info at bottom */}
-      <div className="p-3 border-t border-[rgba(255,255,255,0.08)] bg-[#111827]/30">
+      {/* User profile link & logout at bottom */}
+      <div className="p-3 border-t border-[#1a1a1a] bg-[#050505]">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#1f2937] border border-[rgba(255,255,255,0.08)] flex items-center justify-center font-bold text-xs text-[#3b82f6]">
+          <Link
+            href="/dashboard/profile"
+            className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80 transition-opacity"
+            title="Open Profile Settings"
+          >
+            <div className="w-7 h-7 rounded bg-[#111111] border border-[#242424] flex items-center justify-center font-mono font-bold text-[10px] text-[#ffffff] shrink-0">
               {getInitials(user.name)}
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-[#f9fafb] truncate max-w-[100px]">{user.name || 'Student'}</span>
-              <span className="text-[10px] text-[#94a3b8] capitalize">{user.role?.toLowerCase() || 'Student'}</span>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-xs font-semibold text-[#ffffff] truncate">{user.name || 'User'}</span>
+              <span className="text-[10px] text-[#666666] capitalize truncate">
+                {role === 'STUDENT' ? user.branch || 'Student' : role === 'RECRUITER' ? user.company || 'Recruiter' : user.institutionName || 'Placement Officer'}
+              </span>
             </div>
-          </div>
+          </Link>
+
           <button 
             onClick={handleLogout}
-            className="p-1.5 rounded-md hover:bg-[#ef4444]/10 text-[#94a3b8] hover:text-[#ef4444] transition-all"
+            className="p-1.5 rounded hover:bg-[#1a1a1a] text-[#666666] hover:text-[#ffffff] transition-all shrink-0"
+            title="Sign Out"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

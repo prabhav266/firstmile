@@ -1,39 +1,56 @@
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String
-  avatar        String?
-  year          Int?
-  branch        String?
-  college       String?
-  targetCompany String?
-  leetcodeUsername String? @unique
-  githubUsername   String? @unique
-  role          Role      @default(STUDENT)
-  refreshToken  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  email            String    @unique
+  password         String?
+  name             String
+  avatar           String?
+  year             Int?
+  branch           String?
+  college          String?
+  targetCompany    String?
+  company          String?   // For Recruiters
+  designation      String?   // For Recruiters / TPOs
+  institutionName  String?   // For University TPOs
+  hiringDomain     String?   // For Recruiters
+  leetcodeUsername String?   @unique
+  githubUsername   String?   @unique
+  role             Role      @default(STUDENT)
+  refreshToken     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  skills        UserSkill[]
-  projects      Project[]
-  roadmaps      Roadmap[]
-  codingLogs    CodingLog[]
-  mlLogs        MLLog[]
-  resumes       Resume[]
-  recommendations Recommendation[]
-  plannerWeeks  PlannerWeek[]
-  interviews    InterviewSession[]
-  goals         Goal[]
-  notifications Notification[]
-  analytics     Analytics[]
+  skills           UserSkill[]
+  projects         Project[]
+  roadmaps         Roadmap[]
+  codingLogs       CodingLog[]
+  mlLogs           MLLog[]
+  resumes          Resume[]
+  recommendations  Recommendation[]
+  plannerWeeks     PlannerWeek[]
+  interviews       InterviewSession[]
+  goals            Goal[]
+  notifications    Notification[]
+  analytics        Analytics[]
 
   @@index([email])
   @@index([createdAt])
   @@map("users")
 }
 
+model VerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, code])
+  @@map("verification_tokens")
+}
+
 enum Role {
   STUDENT
+  RECRUITER
+  TPO
   ADMIN
 }

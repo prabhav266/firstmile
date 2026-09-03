@@ -3,14 +3,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  FileText, Code, Clock, Flame, 
-  Sparkles, GraduationCap, Loader2,
-  CheckCircle2, AlertCircle, CalendarRange, Briefcase,
-  Play, Terminal, Cpu, ArrowRight, Award, Trophy, Check
+  FileText, Code, Flame, 
+  GraduationCap, Loader2,
+  CheckCircle2, AlertCircle, Briefcase,
+  Play, Terminal, ArrowRight, Award, Trophy, MessageSquare
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { ReadinessScore } from '@/components/dashboard/ReadinessScore';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { SkillRadarChart } from '@/components/dashboard/SkillRadarChart';
 import { CodingHeatmap } from '@/components/dashboard/CodingHeatmap';
@@ -40,7 +39,7 @@ export default function DashboardPage() {
   }, []);
 
   // Gamification Store hook
-  const { xp, level, streak, unlockedBadges, addXp, incrementStreak, unlockBadge } = useGamificationStore();
+  const { xp, level, streak, unlockedBadges, addXp, incrementStreak, unlockBadge, syncUser } = useGamificationStore();
 
   // 1. Fetch profile info
   const { data: userProfile, isLoading: isUserLoading } = useQuery({
@@ -48,6 +47,13 @@ export default function DashboardPage() {
     queryFn: () => api.get('/api/auth/me'),
     enabled: mounted,
   });
+
+  // Sync user store when user loads
+  React.useEffect(() => {
+    if (userProfile?.data?.data?.id) {
+      syncUser(userProfile.data.data.id);
+    }
+  }, [userProfile, syncUser]);
 
   // 2. Fetch readiness
   const { data: readinessData, isLoading: isReadinessLoading } = useQuery({
@@ -77,7 +83,7 @@ export default function DashboardPage() {
     enabled: mounted,
   });
 
-  // 6. Fetch project listings for Projects Completed metric
+  // 6. Fetch project listings
   const { data: projectsResponse, isLoading: isProjectsLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: () => api.get('/api/projects'),
@@ -92,11 +98,10 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['plannerCurrent'] });
       sounds.playToggle();
       // Reward XP on complete
-      const { leveledUp } = addXp(50, 'Completed planner goal');
-      setXpNotify('+50 XP: Task Completed!');
+      const { leveledUp } = addXp(50, 'Completed milestone');
+      setXpNotify('+50 XP: Milestone Completed');
       setTimeout(() => setXpNotify(null), 3000);
       
-      // Auto unlock badge if total badges criteria met
       if (unlockedBadges.length === 0) {
         unlockBadge('first_scan');
       }
@@ -107,16 +112,16 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[500px] bg-[#09090b] gap-3">
-        <Loader2 className="w-8 h-8 text-[#3b82f6] animate-spin" />
-        <p className="text-xs text-[#94a3b8]">Initializing Career Workspace...</p>
+      <div className="flex flex-col items-center justify-center min-h-[500px] bg-[#000000] gap-3">
+        <Loader2 className="w-6 h-6 text-[#ffffff] animate-spin" />
+        <p className="text-xs font-mono text-[#666666]">INITIALIZING WORKSPACE...</p>
       </div>
     );
   }
 
   const user = userProfile?.data?.data || {};
   const readiness = readinessData?.data?.data || { overallScore: 0, resumeScore: 0 };
-  const summary = summaryData?.data?.data || { streak: 0, mlHours: 0, codingHours: 0 };
+  const summary = summaryData?.data?.data || { streak: 0, codingHours: 0 };
   const planner = plannerData?.data?.data || { goals: [] };
   const projects = projectsResponse?.data?.data || [];
   const hoursDataRaw = studyHoursResponse?.data?.data || [];
@@ -127,34 +132,28 @@ export default function DashboardPage() {
   const codingStreakVal = `${summary.streak || 0} Days`;
   const projectsCompletedCount = projects.filter((p: any) => p.status === 'COMPLETED').length;
   const projectsCompletedVal = `${projectsCompletedCount} Project${projectsCompletedCount !== 1 ? 's' : ''}`;
-  const mlProgressVal = `${(summary.mlHours || 0).toFixed(1)}h`;
 
   // Filter study hours chart data
   const formattedHoursData = hoursDataRaw.slice(-7).map((item: any) => ({
     name: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' }),
     Coding: item.codingHours || 0,
-    ML: item.mlHours || 0,
+    Practice: item.studyHours || item.codingHours || 0,
   }));
 
-  // Default chart data if empty
   const chartData = formattedHoursData.length > 0 ? formattedHoursData : [
-    { name: 'Mon', Coding: 2.5, ML: 1.5 },
-    { name: 'Tue', Coding: 3.0, ML: 2.0 },
-    { name: 'Wed', Coding: 1.5, ML: 2.5 },
-    { name: 'Thu', Coding: 4.0, ML: 1.0 },
-    { name: 'Fri', Coding: 2.0, ML: 3.0 },
-    { name: 'Sat', Coding: 3.5, ML: 1.5 },
-    { name: 'Sun', Coding: 1.0, ML: 2.0 },
+    { name: 'Mon', Coding: 3.0, Practice: 2.0 },
+    { name: 'Tue', Coding: 3.5, Practice: 1.5 },
+    { name: 'Wed', Coding: 2.0, Practice: 3.0 },
+    { name: 'Thu', Coding: 4.5, Practice: 2.0 },
+    { name: 'Fri', Coding: 3.0, Practice: 2.5 },
+    { name: 'Sat', Coding: 4.0, Practice: 3.0 },
+    { name: 'Sun', Coding: 2.0, Practice: 1.5 },
   ];
 
-  // Up-coming tasks & goals
   const rawGoals = Array.isArray(planner.goals) ? planner.goals : [];
-  const totalTasks = rawGoals.length;
-  const completedTasks = rawGoals.filter((g: any) => g.completed).length;
-  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   // Level name mapping
-  const levelNames = ['Novice prep', 'ATS Candidate', 'DSA Scholar', 'Interview Ready', 'Career Master'];
+  const levelNames = ['Novice Candidate', 'ATS Certified', 'DSA Scholar', 'Interview Ready', 'First Mile Fellow'];
   const currentLevelName = levelNames[Math.min(level - 1, levelNames.length - 1)];
   const xpInCurrentLevel = xp % 1000;
   const progressToNextLevel = (xpInCurrentLevel / 1000) * 100;
@@ -171,15 +170,14 @@ export default function DashboardPage() {
       setIsGenerating(false);
       let output = '';
       if (cmdText.includes('resume') || cmdText.includes('ats')) {
-        output = `[PathForge AI: ATS Audit]\nResume ATS score: ${resumeScoreVal}\nPotential missing keywords detected: "Distributed Systems", "gRPC", "Kubernetes".\nRecommended: Quantify bullet descriptions inside the resume dashboard.`;
+        output = `[FIRST MILE • ATS AUDIT]\nResume Strength: ${resumeScoreVal}\nIdentified Keyword Focus: "Distributed Systems", "gRPC", "Query Optimization".\nAction: Quantify bullet metrics inside the Resume Analyzer module.`;
       } else if (cmdText.includes('roadmap') || cmdText.includes('dsa')) {
-        output = `[PathForge AI: Preparations]\nActive target: ${user.branch || 'CSE'} roadmap.\nWeekly objective: Complete Dynamic Programming arrays logs.\nConsistency rating: Strong (${codingStreakVal} streak active).`;
+        output = `[FIRST MILE • ROADMAP TARGET]\nDiscipline: ${user.branch || 'CSE'} Target Track.\nCurrent Focus: Dynamic Programming & Graph BFS/DFS.\nConsistency: ${codingStreakVal} active streak.`;
       } else {
-        output = `[PathForge AI: Cover Letter Draft]\nDrafting cover letter for target company SDE role...\n"Dear Hiring Team, as a CS candidate with a placement score of ${placementScoreVal} and ${projectsCompletedVal} completed, I am highly interested in..."`;
+        output = `[FIRST MILE • DOSSIER DISPATCH]\nDrafting profile summary for target engineering roles...\n"Candidate currently indexed at ${placementScoreVal} readiness with ${projectsCompletedVal} completed."`;
       }
       setCopilotResult(output);
 
-      // Typing stream simulation
       let idx = 0;
       const interval = setInterval(() => {
         setStreamedText((prev) => prev + output.charAt(idx));
@@ -187,60 +185,60 @@ export default function DashboardPage() {
         if (idx >= output.length) {
           clearInterval(interval);
         }
-      }, 10);
-    }, 1200);
+      }, 8);
+    }, 900);
   };
 
   const handleClaimReward = () => {
     sounds.playChime();
-    const { leveledUp } = addXp(150, 'Claimed daily consistency reward');
-    setXpNotify('+150 XP: Daily Bonus Claimed!');
+    const { leveledUp } = addXp(150, 'Claimed consistency bonus');
+    setXpNotify('+150 XP Bonus Claimed');
     setTimeout(() => setXpNotify(null), 3000);
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans select-none">
       
-      {/* ─── Level & XP status bar ─── */}
-      <div className="bg-[#18181b] border border-[rgba(255,255,255,0.06)] rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+      {/* ─── Rank & XP Status Bar ─── */}
+      <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         
         {/* Animated XP notifications */}
         <AnimatePresence>
           {xpNotify && (
             <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.9 }}
-              className="absolute top-3 right-4 bg-[#22c55e]/15 border border-[#22c55e]/30 px-3 py-1 rounded-lg text-xs font-bold text-[#22c55e] z-10"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="absolute top-3 right-4 bg-[#ffffff] text-[#000000] px-2.5 py-1 rounded text-[11px] font-mono font-bold z-10"
             >
               {xpNotify}
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="w-12 h-12 rounded-xl bg-[#09090b] border border-[rgba(255,255,255,0.08)] flex items-center justify-center text-[#8b5cf6] shrink-0 shadow-inner">
-            <Trophy className="w-6 h-6" />
+        <div className="flex items-center gap-3.5 w-full md:w-auto">
+          <div className="w-10 h-10 rounded bg-[#111111] border border-[#242424] flex items-center justify-center text-[#ffffff] shrink-0 font-mono font-bold text-xs">
+            0{level}
           </div>
-          <div className="space-y-1">
-            <span className="text-[9px] font-mono text-[#cbd5e1]/40 uppercase tracking-widest block">Preparation Rank</span>
-            <h3 className="font-bold text-sm text-[#fafafa] flex items-center gap-1.5 uppercase tracking-wide">
-              Level {level} · <span className="text-[#8b5cf6] font-semibold">{currentLevelName}</span>
+          <div className="space-y-0.5">
+            <span className="text-[9px] font-mono text-[#666666] uppercase tracking-widest block">Preparation Rank</span>
+            <h3 className="font-bold text-xs text-[#ffffff] flex items-center gap-1.5 uppercase tracking-wider">
+              Level {level} · <span className="text-[#b5b5b5] font-normal">{currentLevelName}</span>
             </h3>
           </div>
         </div>
 
         {/* Progress bar towards next rank */}
-        <div className="flex-1 w-full max-w-md space-y-2">
-          <div className="flex justify-between text-[9px] font-mono text-[#cbd5e1]/40 uppercase tracking-wider">
+        <div className="flex-1 w-full max-w-md space-y-1.5">
+          <div className="flex justify-between text-[9px] font-mono text-[#666666] uppercase tracking-wider">
             <span>XP: {xpInCurrentLevel} / 1000</span>
-            <span>Progress to Next Rank: {Math.round(progressToNextLevel)}%</span>
+            <span>{Math.round(progressToNextLevel)}% to Next Rank</span>
           </div>
-          <div className="w-full bg-[#09090b] border border-[rgba(255,255,255,0.06)] rounded-full h-2">
+          <div className="w-full bg-[#121212] border border-[#1a1a1a] rounded-full h-1.5 overflow-hidden">
             <motion.div 
-              className="bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] h-full rounded-full" 
+              className="bg-[#ffffff] h-full" 
               style={{ width: `${progressToNextLevel}%` }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.3 }}
             />
           </div>
         </div>
@@ -248,45 +246,50 @@ export default function DashboardPage() {
         {/* Action button */}
         <button
           onClick={handleClaimReward}
-          className="w-full md:w-auto bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-[0_4px_12px_rgba(59,130,246,0.15)] hover:scale-[1.02] active:scale-[0.98]"
+          className="btn-secondary text-xs py-1.5 px-3.5 w-full md:w-auto"
         >
-          Claim Daily XP Bonus
+          Claim Daily XP
         </button>
       </div>
 
-      {/* Greeting & AI Workspace Copilot Input */}
-      <div className="bg-[#18181b] border border-[rgba(255,255,255,0.06)] rounded-2xl p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <span className="text-[10px] font-semibold text-[#3b82f6] uppercase tracking-wider block">Student Workspace</span>
-          <h1 className="font-sans font-bold text-2xl text-[#fafafa]">Welcome back, {user.name || 'Student'}!</h1>
-          <p className="text-xs text-[#cbd5e1]/60">Class of {user.year || '3rd'} Year · {user.branch || 'Computer Science'}</p>
+      {/* Greeting & AI Command Terminal */}
+      <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+        <div className="space-y-0.5">
+          <span className="text-[9px] font-mono text-[#666666] uppercase tracking-wider block">Candidate Command Center</span>
+          <h1 className="font-display font-bold text-xl text-[#ffffff]">{user.name || 'Candidate'}</h1>
+          <p className="text-xs text-[#888888] font-mono">Class of {user.year || '3rd'} Year · {user.branch || 'Computer Science'}</p>
         </div>
 
-        {/* AI Copilot Command Input Bar */}
-        <div className="flex-1 max-w-xl bg-[#09090b] border border-[rgba(255,255,255,0.06)] rounded-xl p-3 space-y-2">
-          <div className="flex items-center justify-between text-[10px] font-bold text-[#8b5cf6] uppercase tracking-wider">
-            <div className="flex items-center gap-1">
-              <Terminal className="w-3.5 h-3.5 text-[#3b82f6]" />
-              <span>AI Copilot Terminal</span>
+        {/* AI Command Input Bar */}
+        <div className="flex-1 max-w-xl bg-[#000000] border border-[#242424] rounded-md p-2.5 space-y-2">
+          <div className="flex items-center justify-between text-[9px] font-mono text-[#666666] uppercase tracking-wider">
+            <div className="flex items-center gap-1.5">
+              <Terminal className="w-3 h-3 text-[#ffffff]" />
+              <span className="text-[#ffffff]">First Mile Assistant</span>
             </div>
-            <span className="text-[#cbd5e1]/40 font-mono text-[9px]">Active</span>
+            <span>Ready</span>
           </div>
 
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Ask Copilot: /resume, /roadmap, /letter..."
+              placeholder="Query workspace: /resume, /roadmap, /dsa..."
               value={copilotInput}
               onChange={(e) => setCopilotInput(e.target.value)}
-              className="flex-1 bg-transparent border-0 text-xs text-[#cbd5e1] placeholder-[#cbd5e1]/40 focus:ring-0 focus:outline-none"
+              className="flex-1 bg-transparent border-0 text-xs text-[#ffffff] placeholder-[#444444] focus:ring-0 focus:outline-none font-mono"
               onKeyDown={(e) => e.key === 'Enter' && handleExecuteCommand(copilotInput)}
             />
             <button
-              onClick={() => handleExecuteCommand(copilotInput || 'Audit my resume')}
+              onClick={() => handleExecuteCommand(copilotInput || 'Audit my resume ATS')}
               disabled={isGenerating}
-              className="bg-[#3b82f6] hover:bg-[#2563eb] text-white p-1.5 rounded-lg transition-all shrink-0"
+              className="btn-primary py-1.5 px-3 shrink-0"
+              title="Run Assistant Query"
             >
-              {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-white" />}
+              {isGenerating ? (
+                <Loader2 className="w-3 h-3 animate-spin text-current" />
+              ) : (
+                <Play className="w-3 h-3 fill-current text-current" />
+              )}
             </button>
           </div>
 
@@ -294,13 +297,13 @@ export default function DashboardPage() {
           <div className="flex gap-1.5 pt-1">
             {[
               { label: 'Audit Resume', cmd: 'Audit my resume ATS' },
-              { label: 'DSA Prep Roadmap', cmd: 'Verify my DSA preparation roadmap' },
-              { label: 'Draft Cover Letter', cmd: 'Draft SDE cover letter' }
+              { label: 'DSA Targets', cmd: 'Verify my DSA preparation roadmap' },
+              { label: 'Profile Summary', cmd: 'Draft engineering profile summary' }
             ].map(btn => (
               <button
                 key={btn.label}
                 onClick={() => handleExecuteCommand(btn.cmd)}
-                className="text-[9px] font-bold text-[#cbd5e1] hover:text-[#3b82f6] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.04)] px-2 py-1 rounded"
+                className="text-[9px] font-mono text-[#888888] hover:text-[#ffffff] bg-[#0d0d0d] hover:bg-[#141414] border border-[#242424] px-2 py-0.5 rounded transition-colors"
               >
                 {btn.label}
               </button>
@@ -309,24 +312,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Copilot Dynamic Terminal Output */}
+      {/* Copilot Terminal Output */}
       <AnimatePresence>
         {(isGenerating || copilotResult) && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded-xl p-4 font-mono text-[11px] text-[#cbd5e1] relative overflow-hidden"
+            className="bg-[#050505] border border-[#242424] rounded-md p-4 font-mono text-[11px] text-[#b5b5b5] relative overflow-hidden"
           >
-            <div className="absolute top-2.5 right-3 text-[9px] uppercase font-bold text-[#94a3b8]/40 flex items-center gap-1">
-              <Cpu className="w-3 h-3 text-[#3b82f6]" />
-              <span>Copilot Engine</span>
-            </div>
-
             {isGenerating ? (
               <div className="flex items-center gap-2 py-1">
-                <Loader2 className="w-3.5 h-3.5 text-[#3b82f6] animate-spin" />
-                <span className="text-[#94a3b8] animate-pulse">Parsing workspace statistics...</span>
+                <Loader2 className="w-3.5 h-3.5 text-[#ffffff] animate-spin" />
+                <span className="text-[#888888] animate-pulse">Evaluating workspace telemetry...</span>
               </div>
             ) : (
               <pre className="whitespace-pre-wrap leading-relaxed">{streamedText}</pre>
@@ -335,146 +333,139 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* Metrics Row: 5 Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {/* Metrics Row: 4 Primary Stats Cards (Pure Monochrome) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatsCard 
           title="Resume Score" 
           value={resumeScoreVal} 
           icon={FileText} 
-          subtext="Latest ATS review" 
+          subtext="ATS parse benchmark" 
         />
         <StatsCard 
-          title="Placement Score" 
+          title="Readiness Index" 
           value={placementScoreVal} 
           icon={GraduationCap} 
-          subtext="Readiness score index" 
+          subtext="Placement probability" 
         />
         <StatsCard 
           title="Coding Streak" 
           value={codingStreakVal} 
           icon={Flame} 
-          subtext="Daily active streak" 
+          subtext="Consecutive active days" 
         />
         <StatsCard 
-          title="Projects Completed" 
+          title="Projects Verified" 
           value={projectsCompletedVal} 
           icon={Briefcase} 
-          subtext="Portfolio items" 
-        />
-        <StatsCard 
-          title="ML Progress" 
-          value={mlProgressVal} 
-          icon={Clock} 
-          subtext="Study hours logged" 
+          subtext="Completed portfolio items" 
         />
       </div>
 
-      {/* Charts Grid: Radar, Heatmap, and Recharts BarChart */}
+      {/* Charts Grid: Radar, Heatmap, and BarChart in Grayscale */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <SkillRadarChart />
         <CodingHeatmap />
         
         {/* Weekly study hours chart */}
-        <div className="bg-[#18181b] border border-[rgba(255,255,255,0.06)] rounded-2xl p-5 flex flex-col justify-between h-[340px]">
+        <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-5 flex flex-col justify-between h-[340px]">
           <div>
-            <h3 className="text-[11px] font-semibold text-[#94a3b8] uppercase tracking-wider mb-1">Weekly Study Hours</h3>
-            <p className="text-[10px] text-[#94a3b8]">Comparison of hours logged for Coding vs ML Tracker</p>
+            <h3 className="text-[11px] font-mono text-[#888888] uppercase tracking-wider mb-1">Weekly Engineering Effort</h3>
+            <p className="text-[10px] text-[#666666]">Hours allocated across DSA solves & technical practice</p>
           </div>
 
           <div className="flex-1 w-full min-h-[200px] mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.03)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: '#666666', fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#666666', fontSize: 9 }} axisLine={false} tickLine={false} />
                 <RechartsTooltip 
-                  contentStyle={{ background: '#09090b', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px' }}
-                  labelStyle={{ color: '#cbd5e1', fontSize: 10 }}
+                  contentStyle={{ background: '#000000', border: '1px solid #242424', borderRadius: '4px' }}
+                  labelStyle={{ color: '#ffffff', fontSize: 10 }}
                   itemStyle={{ fontSize: 10 }}
                 />
                 <Legend iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
-                <Bar dataKey="Coding" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="ML" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Coding" fill="#ffffff" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="Practice" fill="#555555" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Bottom Grid: AI Suggestions & Activities & Planner Tasks */}
+      {/* Bottom Grid: Action Suggestions, Activities & Planner Tasks */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* AI Recommendations */}
-        <div className="bg-[#18181b] border border-[rgba(255,255,255,0.06)] rounded-2xl p-5 space-y-4">
-          <div className="flex items-center gap-1.5 border-b border-[rgba(255,255,255,0.04)] pb-2.5">
-            <Sparkles className="w-4 h-4 text-[#3b82f6]" />
-            <h3 className="text-[11px] font-semibold text-[#94a3b8] uppercase tracking-wider">AI Suggestions</h3>
+        {/* Focus Directives */}
+        <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-5 space-y-4">
+          <div className="flex items-center gap-1.5 border-b border-[#1a1a1a] pb-2.5">
+            <h3 className="text-[11px] font-mono text-[#888888] uppercase tracking-wider">Focus Directives</h3>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {[
-              { tag: 'Resume', text: 'Quantify impact metrics on your React Chat App project details.', color: 'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/15' },
-              { tag: 'Coding', text: 'Lagging in Binary Search trees. Log 3 tree logs from Striver A2Z.', color: 'text-[#8b5cf6] bg-[#8b5cf6]/10 border-[#8b5cf6]/15' },
-              { tag: 'Projects', text: 'Build a Distributed Cache engine to increase resume rating by +12%.', color: 'text-[#22c55e] bg-[#22c55e]/10 border-[#22c55e]/15' }
+              { tag: 'Resume', text: 'Quantify metrics on your React portfolio project to raise ATS score.' },
+              { tag: 'Coding', text: 'Lagging in Binary Search trees. Log 3 tree questions from Striver A2Z.' },
+              { tag: 'Voice Mock', text: 'Pacing average is 155 WPM. Practice STAR structure to stabilize cadence.' }
             ].map((item, i) => (
-              <div key={i} className="p-3 rounded-xl bg-[#09090b] border border-[rgba(255,255,255,0.04)] space-y-1.5">
-                <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border ${item.color}`}>
+              <div key={i} className="p-3 rounded bg-[#000000] border border-[#1e1e1e] space-y-1">
+                <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider border border-[#333333] text-[#b5b5b5]">
                   {item.tag}
                 </span>
-                <p className="text-xs text-[#cbd5e1] leading-relaxed">{item.text}</p>
+                <p className="text-xs text-[#b5b5b5] leading-relaxed">{item.text}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Recent Activities list */}
-        <div className="bg-[#18181b] border border-[rgba(255,255,255,0.06)] rounded-2xl p-5 space-y-4">
-          <div className="flex items-center gap-1.5 border-b border-[rgba(255,255,255,0.04)] pb-2.5">
-            <CheckCircle2 className="w-4 h-4 text-[#22c55e]" />
-            <h3 className="text-[11px] font-semibold text-[#94a3b8] uppercase tracking-wider">Recent Activity</h3>
+        {/* Activity Log */}
+        <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-5 space-y-4">
+          <div className="flex items-center gap-1.5 border-b border-[#1a1a1a] pb-2.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#ffffff]" />
+            <h3 className="text-[11px] font-mono text-[#888888] uppercase tracking-wider">Activity Log</h3>
           </div>
 
           <div className="space-y-3">
             {[
-              { title: 'Logged 4 Leetcode medium problems', time: '1 hour ago', desc: 'Category: Graphs, Topic: BFS' },
-              { title: 'Updated Skills graph sliders', time: 'Yesterday', desc: 'Saved 6 proficiency adjustments' },
-              { title: 'Uploaded resume draft v2', time: '2 days ago', desc: 'ATS Score generated: 82%' },
-              { title: 'Completed Weekly Goal checklist', time: '3 days ago', desc: '100% target solved' }
+              { title: 'Solved 4 LeetCode Mediums', time: '1 hour ago', desc: 'Graphs: BFS & Topological Sort' },
+              { title: 'Completed AI Voice Mock Screen', time: 'Yesterday', desc: 'Score: 8.4 / 10 (STAR Method)' },
+              { title: 'Uploaded resume draft v2', time: '2 days ago', desc: 'ATS Score generated: 84%' },
+              { title: 'Finished Weekly Milestone Checklist', time: '3 days ago', desc: '100% target achieved' }
             ].map((item, i) => (
-              <div key={i} className="flex gap-3 text-xs leading-relaxed">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] mt-1.5 shrink-0" />
+              <div key={i} className="flex gap-2.5 text-xs leading-relaxed">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#ffffff] mt-1.5 shrink-0" />
                 <div className="space-y-0.5">
-                  <h4 className="font-medium text-[#fafafa]">{item.title}</h4>
-                  <p className="text-[10px] text-[#94a3b8]">{item.desc} · {item.time}</p>
+                  <h4 className="font-medium text-[#ffffff]">{item.title}</h4>
+                  <p className="text-[10px] font-mono text-[#666666]">{item.desc} · {item.time}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Upcoming Goals/Tasks */}
-        <div className="bg-[#18181b] border border-[rgba(255,255,255,0.06)] rounded-2xl p-5 space-y-4">
-          <div className="flex items-center gap-1.5 border-b border-[rgba(255,255,255,0.04)] pb-2.5">
-            <AlertCircle className="w-4 h-4 text-[#f59e0b]" />
-            <h3 className="text-[11px] font-semibold text-[#94a3b8] uppercase tracking-wider">Upcoming Tasks</h3>
+        {/* Milestones / Upcoming Tasks */}
+        <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-5 space-y-4">
+          <div className="flex items-center gap-1.5 border-b border-[#1a1a1a] pb-2.5">
+            <AlertCircle className="w-3.5 h-3.5 text-[#888888]" />
+            <h3 className="text-[11px] font-mono text-[#888888] uppercase tracking-wider">Upcoming Milestones</h3>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {rawGoals.length > 0 ? (
               rawGoals.slice(0, 4).map((goal: any, i: number) => (
-                <div key={i} className="flex items-center gap-2.5 text-xs text-[#cbd5e1] p-2 bg-[#09090b] border border-[rgba(255,255,255,0.04)] rounded-lg">
+                <div key={i} className="flex items-center gap-2.5 text-xs p-2 bg-[#000000] border border-[#1e1e1e] rounded">
                   <input
                     type="checkbox"
                     checked={goal.completed}
                     onChange={(e) => toggleGoalMutation.mutate({ goalId: goal.id, completed: e.target.checked })}
-                    className="w-3.5 h-3.5 bg-[#09090b] border border-[rgba(255,255,255,0.08)] rounded focus:ring-0 cursor-pointer text-[#3b82f6]"
+                    className="w-3.5 h-3.5 bg-[#000000] border border-[#333333] rounded focus:ring-0 cursor-pointer text-[#000000]"
                   />
-                  <span className={goal.completed ? 'line-through text-[#94a3b8]' : 'text-[#cbd5e1]'}>{goal.title || goal.t}</span>
+                  <span className={goal.completed ? 'line-through text-[#555555]' : 'text-[#b5b5b5]'}>{goal.title || goal.t}</span>
                 </div>
               ))
             ) : (
-              ['Solve 15 Dynamic Programming questions', 'Complete ML specializations module 3', 'Log 2 portfolio projects updates'].map((task, i) => (
-                <div key={i} className="flex items-center gap-2.5 text-xs text-[#cbd5e1] p-2.5 bg-[#09090b] border border-[rgba(255,255,255,0.04)] rounded-lg">
-                  <div className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+              ['Complete 10 Dynamic Programming questions', 'Practice STAR response on System Design mock', 'Publish distributed cache project repo'].map((task, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-xs text-[#b5b5b5] p-2 bg-[#000000] border border-[#1e1e1e] rounded">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#888888]" />
                   <span>{task}</span>
                 </div>
               ))

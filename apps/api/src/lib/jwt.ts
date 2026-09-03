@@ -11,7 +11,7 @@ export interface JWTPayload {
   userId: string;
   email: string;
   name: string;
-  role: 'STUDENT' | 'ADMIN';
+  role: 'STUDENT' | 'RECRUITER' | 'TPO' | 'ADMIN';
 }
 
 export async function signAccessToken(payload: JWTPayload): Promise<string> {

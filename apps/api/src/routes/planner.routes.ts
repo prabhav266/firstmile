@@ -6,8 +6,10 @@ const router = Router();
 
 router.use(protect);
 
+router.get('/', getCurrent);
 router.get('/current', getCurrent);
 router.post('/generate', generate);
 router.put('/:id/goal', updateGoal);
+router.put('/goals/:id', updateGoal);
 
 export default router;

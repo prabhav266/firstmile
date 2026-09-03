@@ -21,6 +21,8 @@ import mlTrackerRoutes from './routes/mlTracker.routes';
 import plannerRoutes from './routes/planner.routes';
 import interviewRoutes from './routes/interview.routes';
 import readinessRoutes from './routes/readiness.routes';
+import tpoRoutes from './routes/tpo.routes';
+import recruiterRoutes from './routes/recruiter.routes';
 
 // Middleware imports
 import { errorHandler } from './middleware/error.middleware';
@@ -33,8 +35,24 @@ app.use(helmet({
   crossOriginResourcePolicy: false, // Allow local images to display on frontend
 }));
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map((s) => s.trim()) : []),
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      process.env.NODE_ENV !== 'production'
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
   credentials: true,
 }));
 
@@ -64,6 +82,8 @@ app.use('/api/ml-logs', mlTrackerRoutes);
 app.use('/api/planner', plannerRoutes);
 app.use('/api/interview', interviewRoutes);
 app.use('/api/readiness', readinessRoutes);
+app.use('/api/tpo', tpoRoutes);
+app.use('/api/recruiter', recruiterRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

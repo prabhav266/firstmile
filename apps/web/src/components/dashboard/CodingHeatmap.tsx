@@ -49,17 +49,17 @@ export function CodingHeatmap() {
 
   if (!mounted) {
     return (
-      <div className="bg-[#1f2937] border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 h-[340px] flex items-center justify-center text-xs text-[#94a3b8]">
+      <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-6 h-[340px] flex items-center justify-center text-xs font-mono text-[#666666]">
         Loading contribution calendar...
       </div>
     );
   }
 
   return (
-    <div className="bg-[#1f2937] border border-[rgba(255,255,255,0.08)] rounded-2xl p-5 flex flex-col justify-between h-[340px]">
+    <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-5 flex flex-col justify-between h-[340px]">
       <div>
-        <h3 className="text-[11px] font-semibold text-[#94a3b8] uppercase tracking-wider mb-1">Coding Logs Consistency</h3>
-        <p className="text-[10px] text-[#94a3b8]">Contribution calendar tracking LeetCode, Codeforces, & CodeChef logs</p>
+        <h3 className="text-[11px] font-mono text-[#888888] uppercase tracking-wider mb-1">DSA Solve Consistency</h3>
+        <p className="text-[10px] text-[#666666]">196-day log tracking verified LeetCode & Striver problem solves</p>
       </div>
 
       {/* The grid calendar container */}
@@ -68,11 +68,11 @@ export function CodingHeatmap() {
           {dateBlocks.map((block, i) => {
             const intensity = block.count;
 
-            let bgClass = 'bg-[rgba(255,255,255,0.03)]';
-            if (intensity === 1) bgClass = 'bg-[#3b82f6]/30';
-            else if (intensity === 2) bgClass = 'bg-[#3b82f6]/50';
-            else if (intensity === 3) bgClass = 'bg-[#3b82f6]/75';
-            else if (intensity >= 4) bgClass = 'bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.5)]';
+            let bgClass = 'bg-[#121212]';
+            if (intensity === 1) bgClass = 'bg-[#444444]';
+            else if (intensity === 2) bgClass = 'bg-[#777777]';
+            else if (intensity === 3) bgClass = 'bg-[#b5b5b5]';
+            else if (intensity >= 4) bgClass = 'bg-[#ffffff] shadow-sm';
 
             return (
               <div
@@ -86,14 +86,15 @@ export function CodingHeatmap() {
       </div>
 
       {/* Legend bar */}
-      <div className="flex items-center justify-between text-xs text-[#94a3b8] pt-2 border-t border-[rgba(255,255,255,0.04)]">
-        <span className="text-[11px]">Current Streak: <strong className="text-[#f9fafb] font-semibold">{streak.currentStreak || 0} days</strong></span>
-        <div className="flex items-center gap-1.5 text-[10px]">
+      <div className="flex items-center justify-between text-xs text-[#888888] pt-2 border-t border-[#1a1a1a] font-mono">
+        <span className="text-[10px]">Active Streak: <strong className="text-[#ffffff] font-semibold">{streak.currentStreak || 0} days</strong></span>
+        <div className="flex items-center gap-1.5 text-[9px]">
           <span>Less</span>
-          <div className="w-3 h-3 rounded-sm bg-[rgba(255,255,255,0.03)]" />
-          <div className="w-3 h-3 rounded-sm bg-[#3b82f6]/30" />
-          <div className="w-3 h-3 rounded-sm bg-[#3b82f6]/60" />
-          <div className="w-3 h-3 rounded-sm bg-[#3b82f6]" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-[#121212]" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-[#444444]" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-[#777777]" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-[#b5b5b5]" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-[#ffffff]" />
           <span>More</span>
         </div>
       </div>

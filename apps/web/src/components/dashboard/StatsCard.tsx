@@ -13,27 +13,27 @@ interface StatsCardProps {
   trendUp?: boolean;
 }
 
-export function StatsCard({ title, value, icon: Icon, subtext, trend, trendUp }: StatsCardProps) {
+export function StatsCard({ title, value, icon: Icon, subtext, trend }: StatsCardProps) {
   return (
     <motion.div 
       whileHover={{ y: -1 }}
-      className="bg-[#1f2937] border border-[rgba(255,255,255,0.08)] rounded-2xl p-5 flex items-center justify-between transition-colors hover:border-[rgba(255,255,255,0.12)]"
+      className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-4 flex items-center justify-between transition-colors hover:border-[#333333]"
     >
-      <div className="space-y-1">
-        <span className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wider block">{title}</span>
+      <div className="space-y-0.5">
+        <span className="text-[9px] font-mono text-[#666666] uppercase tracking-wider block">{title}</span>
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold font-sans text-[#f9fafb]">{value}</span>
+          <span className="text-xl font-bold font-display text-[#ffffff]">{value}</span>
           {trend && (
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${trendUp ? 'text-[#22c55e] bg-[#22c55e]/10' : 'text-[#ef4444] bg-[#ef4444]/10'}`}>
+            <span className="text-[9px] font-mono font-medium px-1.5 py-0.2 rounded bg-[#181818] border border-[#27272a] text-[#b5b5b5]">
               {trend}
             </span>
           )}
         </div>
-        <p className="text-[11px] text-[#94a3b8]">{subtext}</p>
+        <p className="text-[10px] text-[#888888] font-mono">{subtext}</p>
       </div>
 
-      <div className="w-10 h-10 rounded-lg bg-[#111827] border border-[rgba(255,255,255,0.08)] flex items-center justify-center text-[#3b82f6]">
-        <Icon className="w-4.5 h-4.5" />
+      <div className="w-8 h-8 rounded bg-[#111111] border border-[#242424] flex items-center justify-center text-[#ffffff] shrink-0">
+        <Icon className="w-4 h-4" />
       </div>
     </motion.div>
   );

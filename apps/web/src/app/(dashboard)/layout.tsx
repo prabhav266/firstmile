@@ -8,7 +8,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#0f172a]">
+    <div className="min-h-screen bg-[#000000] text-[#ffffff]">
       {/* Sidebar - fixed */}
       <Sidebar />
 
@@ -17,7 +17,7 @@ export default function DashboardLayout({
         <TopBar />
         
         {/* Main Content Pane */}
-        <main className="flex-1 p-8 bg-[#0f172a]">
+        <main className="flex-1 p-8 bg-[#000000]">
           {children}
         </main>
       </div>

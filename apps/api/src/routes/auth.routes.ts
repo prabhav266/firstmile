@@ -1,14 +1,29 @@
 import { Router } from 'express';
-import { register, login, logout, refresh, me, registerSchema, loginSchema } from '../controllers/auth.controller';
-import { validate } from '../middleware/validate.middleware';
+import {
+  sendOtp,
+  verifyOtp,
+  register,
+  login,
+  logout,
+  refreshToken,
+  getMe,
+  updateProfile,
+} from '../controllers/auth.controller';
 import { protect } from '../middleware/auth.middleware';
 
 const router = Router();
 
-router.post('/register', validate(registerSchema), register);
-router.post('/login', validate(loginSchema), login);
+// Clerk-Style Passwordless Email OTP Routes
+router.post('/send-otp', sendOtp);
+router.post('/verify-otp', verifyOtp);
+
+// Traditional & Fallback Auth Routes
+router.post('/register', register);
+router.post('/login', login);
 router.post('/logout', protect, logout);
-router.post('/refresh', refresh);
-router.get('/me', protect, me);
+router.post('/refresh', refreshToken);
+router.get('/me', protect, getMe);
+router.put('/me', protect, updateProfile);
+router.put('/profile', protect, updateProfile);
 
 export default router;

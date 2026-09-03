@@ -6,8 +6,6 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'react-hot-toast';
 import { LenisProvider } from './LenisProvider';
 import { CustomCursor } from '../ui/CustomCursor';
-import { MeshBackground } from '../ui/MeshBackground';
-import { BootLoader } from '../ui/BootLoader';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -26,16 +24,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider
       attribute="class"
       defaultTheme="dark"
-      forcedTheme="dark"
-      enableSystem={false}
+      enableSystem={true}
       disableTransitionOnChange
     >
       <QueryClientProvider client={queryClient}>
         <LenisProvider>
-          {/* Global Visual Identity elements */}
-          <MeshBackground />
+          {/* Award-winning trailing dot custom cursor */}
           <CustomCursor />
-          <BootLoader />
           
           {children}
           
@@ -44,10 +39,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
             toastOptions={{
               duration: 4000,
               style: {
-                background: '#111827',
-                color: '#cbd5e1',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '12px',
+                background: '#0a0a0a',
+                color: '#ffffff',
+                border: '1px solid #242424',
+                borderRadius: '8px',
+                fontFamily: 'monospace',
+                fontSize: '12px',
               },
             }}
           />

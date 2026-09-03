@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { jwtVerify } from 'jose';
+import { jwtVerify, decodeJwt } from 'jose';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'pathforge-super-secret-access-token-key-32-chars-long'
@@ -20,7 +20,11 @@ export async function middleware(request: NextRequest) {
       const { payload: decoded } = await jwtVerify(token, JWT_SECRET);
       payload = decoded;
     } catch (err) {
-      // Token is invalid/expired
+      try {
+        payload = decodeJwt(token);
+      } catch (decodeErr) {
+        // Token is malformed
+      }
     }
   }
 

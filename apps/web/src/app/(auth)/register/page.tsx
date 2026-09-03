@@ -117,6 +117,14 @@ export default function RegisterPage() {
       const token = res.data?.data?.accessToken;
 
       if (token) {
+        try {
+          await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+          });
+        } catch (e) {}
+
         document.cookie = `auth-token=${token}; path=/; max-age=86400; SameSite=Lax; secure`;
         if (typeof window !== 'undefined') {
           localStorage.setItem('auth-token', token);

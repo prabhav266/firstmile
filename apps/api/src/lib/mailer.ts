@@ -39,12 +39,12 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
   }
 }
 
-// 2. Send HTML Verification Email (Supports Resend HTTPS API, Nodemailer SMTP, and fallback)
+// 2. Send HTML Verification Email
 export async function sendVerificationEmail(
   toEmail: string,
   otpCode: string
 ): Promise<{ success: boolean; previewUrl?: string; error?: string; devOtp?: string }> {
-  const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_USER || '"FIRST MILE" <noreply@firstmile.dev>';
+  const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_USER || '"FIRST MILE" <noreplyfirstmilee@gmail.com>';
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -83,7 +83,29 @@ export async function sendVerificationEmail(
     </html>
   `;
 
-  // 1. If Resend HTTPS API Key is provided (Recommended for Render, AWS, Vercel)
+  // 1. Primary Cloud Route: Dispatch via Vercel HTTPS Gateway (Bypasses Render port blocks 100%)
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  if (frontendUrl && !frontendUrl.includes('localhost')) {
+    try {
+      const mailEndpoint = `${frontendUrl.replace(/\/$/, '')}/api/mail`;
+      await axios.post(
+        mailEndpoint,
+        {
+          toEmail,
+          subject: `Your FIRST MILE Verification Code: ${otpCode}`,
+          htmlContent,
+          secret: 'firstmile-internal-mail-secret-key-2026',
+        },
+        { timeout: 10000 }
+      );
+      console.log(`[FIRST MILE] 🚀 REAL EMAIL SENT VIA VERCEL HTTPS GATEWAY to: ${toEmail}`);
+      return { success: true };
+    } catch (gatewayErr: any) {
+      console.warn(`[FIRST MILE] Vercel mail gateway dispatch failed:`, gatewayErr.response?.data || gatewayErr.message);
+    }
+  }
+
+  // 2. Secondary Cloud Route: If Resend HTTPS API Key is provided
   if (process.env.RESEND_API_KEY) {
     try {
       await axios.post(
@@ -109,7 +131,7 @@ export async function sendVerificationEmail(
     }
   }
 
-  // 2. Try Nodemailer SMTP with short timeout (to prevent hanging if Render blocks port 587)
+  // 3. Direct Nodemailer SMTP (Works in local dev or unblocked servers)
   const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
   const port = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 587;
   const user = process.env.SMTP_USER || process.env.EMAIL_USER;
@@ -135,14 +157,14 @@ export async function sendVerificationEmail(
         html: htmlContent,
       });
 
-      console.log(`[FIRST MILE] 🚀 REAL EMAIL SENT VIA SMTP to: ${toEmail}`);
+      console.log(`[FIRST MILE] 🚀 REAL EMAIL SENT VIA DIRECT SMTP to: ${toEmail}`);
       return { success: true };
     } catch (smtpErr: any) {
-      console.warn(`[FIRST MILE] SMTP connection timed out or failed (likely cloud port block):`, smtpErr.message);
+      console.warn(`[FIRST MILE] Direct SMTP connection failed (Render free tier blocks port 587):`, smtpErr.message);
     }
   }
 
-  // 3. Fallback: Log OTP in terminal & return code so user is NEVER blocked
+  // 4. Fallback: Log OTP in terminal & return code so user is NEVER blocked
   console.log(`\n================================================================`);
   console.log(`[FIRST MILE] 🔑 ACTIVE OTP CODE FOR ${toEmail}: ${otpCode}`);
   console.log(`================================================================\n`);

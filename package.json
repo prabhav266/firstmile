@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "build:api": "prisma generate --schema=apps/api/prisma/schema && pnpm --filter @pathforge/api build",
+    "build:api": "pnpm --filter @pathforge/api run db:generate && pnpm --filter @pathforge/api run build",
     "start:api": "node apps/api/dist/server.js",
     "lint": "turbo lint",
     "dev:web": "turbo dev --filter=@pathforge/web",
@@ -28,7 +28,7 @@
   },
   "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": ">=20.0.0",
+    "node": "20.x",
     "pnpm": ">=9.0.0"
   }
 }

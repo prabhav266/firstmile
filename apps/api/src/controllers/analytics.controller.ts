@@ -54,7 +54,7 @@ export async function getHours(req: Request, res: Response, next: NextFunction) 
       take: 30, // Last 30 days
     });
 
-    const formattedData = analytics.map(a => ({
+    const formattedData = analytics.map((a: any) => ({
       date: a.date.toISOString().split('T')[0],
       studyHours: a.studyHours,
       codingHours: a.codingHours,
@@ -78,7 +78,7 @@ export async function getConsistency(req: Request, res: Response, next: NextFunc
     });
 
     const currentStreak = analytics[0]?.streak || 0;
-    const maxStreak = Math.max(...analytics.map(a => a.streak), 0);
+    const maxStreak = Math.max(...analytics.map((a: any) => a.streak), 0);
 
     return success(res, {
       currentStreak,

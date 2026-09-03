@@ -8,7 +8,7 @@ const DEPARTMENTS = ['CSE', 'IT', 'AI/DS', 'ECE'];
 // Helper to calculate student metrics
 async function buildStudentMetrics(user: any) {
   const codingLogs = await prisma.codingLog.findMany({ where: { userId: user.id } });
-  const totalSolved = codingLogs.reduce((sum, l) => sum + l.problemsSolved, 0);
+  const totalSolved = codingLogs.reduce((sum: number, l: any) => sum + l.problemsSolved, 0);
 
   const latestResume = await prisma.resume.findFirst({
     where: { userId: user.id, analysisStatus: 'COMPLETED' },

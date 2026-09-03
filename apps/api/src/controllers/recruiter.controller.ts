@@ -25,7 +25,7 @@ const outreachMessages: Array<{
 // Helper to construct rich candidate talent profiles
 async function buildTalentProfile(user: any) {
   const codingLogs = await prisma.codingLog.findMany({ where: { userId: user.id } });
-  const leetcodeSolved = codingLogs.reduce((sum, l) => sum + l.problemsSolved, 0);
+  const leetcodeSolved = codingLogs.reduce((sum: number, l: any) => sum + l.problemsSolved, 0);
 
   const latestResume = await prisma.resume.findFirst({
     where: { userId: user.id, analysisStatus: 'COMPLETED' },

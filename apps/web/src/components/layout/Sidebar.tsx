@@ -97,6 +97,8 @@ export function Sidebar() {
     } finally {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('pathforge-career-os-gamification');
+        localStorage.removeItem('auth-token');
+        document.cookie = 'auth-token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; SameSite=Lax';
       }
       useGamificationStore.getState().resetProgress();
       router.push('/login');

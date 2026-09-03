@@ -111,6 +111,14 @@ export default function LoginPage() {
       sounds.playChime();
       const redirectUrl = res.data?.data?.redirectUrl || (activeRole === 'RECRUITER' ? '/dashboard/recruiter' : activeRole === 'TPO' ? '/dashboard/tpo' : '/dashboard');
       const role = res.data?.data?.user?.role || activeRole;
+      const token = res.data?.data?.accessToken;
+
+      if (token) {
+        document.cookie = `auth-token=${token}; path=/; max-age=86400; SameSite=Lax; secure`;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('auth-token', token);
+        }
+      }
 
       if (typeof window !== 'undefined') {
         localStorage.removeItem('pathforge-career-os-gamification');

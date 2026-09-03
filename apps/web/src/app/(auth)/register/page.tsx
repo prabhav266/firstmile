@@ -114,6 +114,15 @@ export default function RegisterPage() {
 
       sounds.playChime();
       const redirectUrl = res.data?.data?.redirectUrl || '/dashboard';
+      const token = res.data?.data?.accessToken;
+
+      if (token) {
+        document.cookie = `auth-token=${token}; path=/; max-age=86400; SameSite=Lax; secure`;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('auth-token', token);
+        }
+      }
+
       if (typeof window !== 'undefined') {
         localStorage.removeItem('pathforge-career-os-gamification');
       }

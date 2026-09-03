@@ -10,6 +10,17 @@ export const api = axios.create({
   },
 });
 
+// Request interceptor to attach Bearer token across domains
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('auth-token');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 // Response interceptor to handle token renewal or redirects
 api.interceptors.response.use(
   (response) => response,

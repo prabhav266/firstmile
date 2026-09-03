@@ -35,9 +35,23 @@ api.interceptors.response.use(
       !originalRequest?.url?.includes('/api/auth/send-otp') &&
       !originalRequest?.url?.includes('/api/auth/verify-otp')
     ) {
-      originalRequest._retry = true;
       try {
-        await axios.post(`${NEXT_PUBLIC_API_URL}/api/auth/refresh`, {}, { withCredentials: true });
+        const refreshRes = await axios.post(`${NEXT_PUBLIC_API_URL}/api/auth/refresh`, {}, { withCredentials: true });
+        const newToken = refreshRes.data?.data?.accessToken;
+        if (newToken) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('auth-token', newToken);
+            document.cookie = `auth-token=${newToken}; path=/; max-age=86400; SameSite=Lax; secure`;
+            try {
+              await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: newToken }),
+              });
+            } catch (e) {}
+          }
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        }
         return api(originalRequest);
       } catch (err) {
         // Stale cookie / user no longer exists in DB

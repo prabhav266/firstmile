@@ -30,7 +30,7 @@ export default function ProfilePage() {
     queryFn: () => api.get('/api/auth/me'),
   });
 
-  const user = userProfile?.data?.data || {};
+  const user = React.useMemo(() => userProfile?.data?.data || {}, [userProfile?.data?.data]);
   const role = (user.role || 'STUDENT') as 'STUDENT' | 'RECRUITER' | 'TPO' | 'ADMIN';
 
   // Form State

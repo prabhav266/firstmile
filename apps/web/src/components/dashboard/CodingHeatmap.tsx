@@ -25,7 +25,10 @@ export function CodingHeatmap() {
     enabled: mounted,
   });
 
-  const heatmapDataMap: Record<string, number> = heatmapResponse?.data?.data || {};
+  const heatmapDataMap: Record<string, number> = React.useMemo(
+    () => heatmapResponse?.data?.data || {},
+    [heatmapResponse?.data?.data]
+  );
   const streak = consistencyResponse?.data?.data || { currentStreak: 0 };
 
   const columns = 28;
@@ -33,8 +36,8 @@ export function CodingHeatmap() {
   const totalBlocks = columns * rows;
 
   // Generate date strings array for the last 196 days leading to today
-  const today = new Date();
   const dateBlocks = React.useMemo(() => {
+    const today = new Date();
     const blocks: { dateStr: string; formattedDate: string; count: number }[] = [];
     for (let i = totalBlocks - 1; i >= 0; i--) {
       const d = new Date(today);
@@ -45,7 +48,7 @@ export function CodingHeatmap() {
       blocks.push({ dateStr, formattedDate, count });
     }
     return blocks;
-  }, [heatmapDataMap]);
+  }, [heatmapDataMap, totalBlocks]);
 
   if (!mounted) {
     return (

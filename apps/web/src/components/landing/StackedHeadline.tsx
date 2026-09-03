@@ -25,7 +25,7 @@ export function StackedHeadline({ onCycle }: StackedHeadlineProps) {
 
   const lines = HEADLINE_LINES[0];
 
-  const cycleHeadline = () => {
+  const cycleHeadline = React.useCallback(() => {
     if (animatingRef.current || !containerRef.current) return;
     animatingRef.current = true;
 
@@ -74,7 +74,7 @@ export function StackedHeadline({ onCycle }: StackedHeadlineProps) {
         });
       }
     });
-  };
+  }, [lines.line1.length, onCycle]);
 
   useEffect(() => {
     // Initial setup: position line items with zero opacity for inactive
@@ -98,7 +98,7 @@ export function StackedHeadline({ onCycle }: StackedHeadlineProps) {
     }, 6000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [cycleHeadline]);
 
   return (
     <div

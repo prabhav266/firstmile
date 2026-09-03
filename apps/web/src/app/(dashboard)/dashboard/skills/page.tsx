@@ -30,7 +30,7 @@ export default function SkillsPage() {
     enabled: mounted,
   });
 
-  const baseSkills = skillsBaseData?.data?.data || [];
+  const baseSkills = React.useMemo(() => skillsBaseData?.data?.data || [], [skillsBaseData?.data?.data]);
 
   React.useEffect(() => {
     if (baseSkills.length > 0) {

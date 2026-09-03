@@ -700,7 +700,7 @@ export default function MLTrackerPage() {
                 {logs.length === 0 && (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-[#94A3B8] text-sm">
-                      No ML sessions logged yet. Click "Log Session" to start tracking!
+                      No ML sessions logged yet. Click &quot;Log Session&quot; to start tracking!
                     </td>
                   </tr>
                 )}

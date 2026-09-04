@@ -1,0 +1,19 @@
+model ReadinessSnapshot {
+  id                 String   @id @default(cuid())
+  userId             String
+  overallScore       Int
+  dsaScore           Int
+  engineeringScore   Int
+  csScore            Int
+  communicationScore Int
+  resumeScore        Int
+  consistencyScore   Int
+  targetRole         String?  @default("FULL_STACK")
+  targetTier         String?  @default("TIER_1")
+  recordedAt         DateTime @default(now())
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, recordedAt])
+  @@map("readiness_snapshots")
+}

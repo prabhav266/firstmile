@@ -23,6 +23,7 @@ import interviewRoutes from './routes/interview.routes';
 import readinessRoutes from './routes/readiness.routes';
 import tpoRoutes from './routes/tpo.routes';
 import recruiterRoutes from './routes/recruiter.routes';
+import evidenceRoutes from './routes/evidence.routes';
 
 // Middleware imports
 import { errorHandler } from './middleware/error.middleware';
@@ -84,6 +85,7 @@ app.use('/api/interview', interviewRoutes);
 app.use('/api/readiness', readinessRoutes);
 app.use('/api/tpo', tpoRoutes);
 app.use('/api/recruiter', recruiterRoutes);
+app.use('/api/evidence', evidenceRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

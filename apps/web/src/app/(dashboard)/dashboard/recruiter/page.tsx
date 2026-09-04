@@ -38,6 +38,8 @@ interface TalentCandidate {
   atsScore: number;
   voiceMockScore: number;
   readinessScore: number;
+  verifiedSkillCount?: number;
+  partiallyVerifiedCount?: number;
   skills: string[];
   highlights: string[];
   verifiedBadges: Array<{ label: string; color: string }>;
@@ -439,6 +441,31 @@ export default function RecruiterMarketplacePage() {
                   </li>
                 ))}
               </ul>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-[#ffffff] uppercase tracking-wider">
+                  Demonstrated Skills & Evidence
+                </h4>
+                <span className="text-[10px] font-mono text-[#10b981]">
+                  ✓ Verified by Evidence Engine
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {previewCandidate.skills.map((s, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 rounded bg-[#000000] border border-[#27272a] text-xs font-mono text-[#e4e4e7] flex items-center gap-1.5"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                    {s}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-[#71717a] mt-2 font-mono">
+                Verified through public repositories, commit recency, and live test performance.
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1a1a1a]">

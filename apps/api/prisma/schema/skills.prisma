@@ -2,7 +2,9 @@ model Skill {
   id         String        @id @default(cuid())
   name       String        @unique
   category   SkillCategory
-  userSkills UserSkill[]
+  userSkills     UserSkill[]
+  skillScores    SkillScore[]
+  skillEvidences SkillEvidence[]
 
   @@map("skills")
 }

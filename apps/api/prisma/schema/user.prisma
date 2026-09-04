@@ -31,6 +31,9 @@ model User {
   goals            Goal[]
   notifications    Notification[]
   analytics        Analytics[]
+  skillScores      SkillScore[]
+  skillEvidences   SkillEvidence[]
+  githubAccount    GitHubAccount?
 
   @@index([email])
   @@index([createdAt])

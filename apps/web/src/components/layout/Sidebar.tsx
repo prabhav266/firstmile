@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 import { 
   LayoutDashboard, FileText, Compass, Code,
   Briefcase, Star, Calendar, MessageSquare, BarChart, 
-  Settings, ShieldAlert, LogOut, Building2, Users, User
+  Settings, ShieldAlert, LogOut, Building2, Users, User, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGamificationStore } from '@/lib/gamification';
@@ -22,6 +22,7 @@ interface NavItem {
 // 1. Student Navigation Menu (Clean & Laser-Focused on Placements)
 const STUDENT_NAV: NavItem[] = [
   { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Evidence Graph', href: '/dashboard/evidence', icon: Shield },
   { name: 'Coding Tracker', href: '/dashboard/coding', icon: Code },
   { name: 'Voice Mock Screener', href: '/dashboard/interview', icon: MessageSquare },
   { name: 'Resume Analyzer', href: '/dashboard/resume', icon: FileText },

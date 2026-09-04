@@ -1,0 +1,116 @@
+model SkillScore {
+  id                 String             @id @default(cuid())
+  userId             String
+  skillId            String
+  score              Int                @default(0) // 0-100
+  confidence         ConfidenceLevel    @default(LOW)
+  verificationStatus VerificationStatus @default(INSUFFICIENT_EVIDENCE)
+  evidenceCount      Int                @default(0)
+  lastCalculated     DateTime           @default(now())
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill              Skill              @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  evidenceItems      SkillEvidence[]
+
+  @@unique([userId, skillId])
+  @@index([userId, score])
+  @@index([skillId, verificationStatus])
+  @@map("skill_scores")
+}
+
+model SkillEvidence {
+  id           String           @id @default(cuid())
+  userId       String
+  skillId      String
+  skillScoreId String?
+  type         EvidenceType
+  title        String
+  description  String
+  strength     EvidenceStrength @default(SUPPORTING)
+  url          String?
+  metadata     Json?            // Structured evidence metrics (bytes, commits, score, etc.)
+  verified     Boolean          @default(false)
+  sourceDate   DateTime         @default(now())
+  createdAt    DateTime         @default(now())
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill        Skill            @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  skillScore   SkillScore?      @relation(fields: [skillScoreId], references: [id], onDelete: SetNull)
+
+  @@index([userId, skillId])
+  @@index([userId, type])
+  @@map("skill_evidence")
+}
+
+model GitHubAccount {
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  username     String
+  profileUrl   String
+  avatarUrl    String?
+  publicRepos  Int                @default(0)
+  totalStars   Int                @default(0)
+  followers    Int                @default(0)
+  bio          String?
+  topLanguages Json?              // Language byte distributions
+  lastSyncedAt DateTime           @default(now())
+  createdAt    DateTime           @default(now())
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositories GitHubRepository[]
+
+  @@map("github_accounts")
+}
+
+model GitHubRepository {
+  id              String        @id @default(cuid())
+  githubAccountId String
+  name            String
+  fullName        String
+  description     String?
+  htmlUrl         String
+  language        String?
+  languages       Json?         // { "TypeScript": 45000, "CSS": 3200 }
+  topics          String[]      @default([])
+  stars           Int           @default(0)
+  forks           Int           @default(0)
+  isFork          Boolean       @default(false)
+  pushedAt        DateTime?
+  hasReadme       Boolean       @default(true)
+  complexityScore Int           @default(50)
+  createdAt       DateTime      @default(now())
+
+  account         GitHubAccount @relation(fields: [githubAccountId], references: [id], onDelete: Cascade)
+
+  @@index([githubAccountId])
+  @@map("github_repositories")
+}
+
+enum ConfidenceLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum VerificationStatus {
+  VERIFIED
+  PARTIALLY_VERIFIED
+  SELF_REPORTED
+  INSUFFICIENT_EVIDENCE
+}
+
+enum EvidenceType {
+  GITHUB_REPO
+  PROJECT
+  CODING_DSA
+  RESUME
+  INTERVIEW
+  ASSESSMENT
+  CERTIFICATION
+}
+
+enum EvidenceStrength {
+  STRONG
+  MODERATE
+  SUPPORTING
+}

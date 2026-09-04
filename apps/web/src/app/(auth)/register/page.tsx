@@ -17,6 +17,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { sounds } from '@/lib/sounds';
+import { validateEmail } from '@/lib/emailValidation';
 
 type PersonaRole = 'STUDENT' | 'RECRUITER' | 'TPO';
 
@@ -52,8 +53,13 @@ export default function RegisterPage() {
   // Send OTP
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !email.includes('@')) {
-      return toast.error('Please enter your full name and valid email');
+    if (!name.trim()) {
+      return toast.error('Please enter your full name');
+    }
+
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.valid) {
+      return toast.error(emailCheck.error || 'Please enter a valid email address');
     }
 
     setLoading(true);

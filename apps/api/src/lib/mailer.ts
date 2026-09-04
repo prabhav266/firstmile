@@ -5,37 +5,102 @@ import axios from 'axios';
 
 const resolveMx = promisify(dns.resolveMx);
 
+const COMMON_TYPOS: Record<string, string> = {
+  'gmai.com': 'gmail.com',
+  'gamil.com': 'gmail.com',
+  'gmial.com': 'gmail.com',
+  'gmaill.com': 'gmail.com',
+  'gmai.co': 'gmail.com',
+  'gmaill.co': 'gmail.com',
+  'gmal.com': 'gmail.com',
+  'gmaio.com': 'gmail.com',
+  'gmail.con': 'gmail.com',
+  'gmail.co': 'gmail.com',
+  'gmaik.com': 'gmail.com',
+  'gmaill.in': 'gmail.com',
+  'gmai.in': 'gmail.com',
+  'gemail.com': 'gmail.com',
+  'gmali.com': 'gmail.com',
+  'gmaul.com': 'gmail.com',
+  'yaho.com': 'yahoo.com',
+  'yahooo.com': 'yahoo.com',
+  'yhaoo.com': 'yahoo.com',
+  'yaho.co': 'yahoo.com',
+  'yahoo.con': 'yahoo.com',
+  'outlok.com': 'outlook.com',
+  'outloo.com': 'outlook.com',
+  'outlook.con': 'outlook.com',
+  'outlok.co': 'outlook.com',
+  'hotmial.com': 'hotmail.com',
+  'hotmai.com': 'hotmail.com',
+  'hotmial.con': 'hotmail.com',
+};
+
+const DISPOSABLE_DOMAINS = new Set([
+  'tempmail.com', '10minutemail.com', 'mailinator.com', 'guerrillamail.com',
+  'sharklasers.com', 'yopmail.com', 'dispostable.com', 'trashmail.com',
+  'getairmail.com', 'throwawaymail.com', 'temp-mail.org', 'fakeinbox.com',
+  'tempail.com', 'generator.email', 'mohmal.com', 'inboxkitten.com',
+  'crazymailing.com', 'mytemp.email', 'trashmail.net', 'burnermail.io',
+  'example.com', 'test.com', 'fake.com', 'invalid.com',
+]);
+
 // 1. Validate that the email domain actually has active MX records (can receive mail)
 export async function validateEmailDomain(email: string): Promise<{ valid: boolean; error?: string }> {
   try {
-    const parts = email.trim().toLowerCase().split('@');
+    const trimmed = email.trim().toLowerCase();
+    const parts = trimmed.split('@');
     if (parts.length !== 2 || !parts[0] || !parts[1]) {
+      return { valid: false, error: 'Invalid email address format' };
+    }
+
+    // RFC regex check
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(trimmed) || trimmed.includes('..')) {
       return { valid: false, error: 'Invalid email address format' };
     }
 
     const domain = parts[1];
 
-    // Common disposable / invalid test domain check
-    const blockedDomains = ['example.com', 'test.com', 'fake.com', 'invalid.com'];
-    if (blockedDomains.includes(domain)) {
-      return { valid: false, error: `The domain '${domain}' is a test domain and cannot receive real emails.` };
+    // Typo detection
+    if (COMMON_TYPOS[domain]) {
+      return {
+        valid: false,
+        error: `Did you mean @${COMMON_TYPOS[domain]}? Please check the spelling of your email address.`,
+      };
     }
 
-    // Live MX DNS lookup
+    // Disposable domain check
+    if (DISPOSABLE_DOMAINS.has(domain)) {
+      return {
+        valid: false,
+        error: 'Temporary or disposable email domains are not allowed. Please enter your real email.',
+      };
+    }
+
+    // Live MX DNS lookup with strict 2.5 second timeout to prevent hanging
     try {
-      const records = await resolveMx(domain);
+      const dnsTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('DNS_TIMEOUT')), 2500)
+      );
+
+      const records = (await Promise.race([resolveMx(domain), dnsTimeout])) as any[];
       if (!records || records.length === 0) {
-        return { valid: false, error: `The email domain '@${domain}' does not have valid mail exchange (MX) servers.` };
+        return {
+          valid: false,
+          error: `The email domain '@${domain}' does not have mail servers. Please enter a valid email.`,
+        };
       }
     } catch (dnsErr: any) {
-      if (dnsErr.code === 'ENOTFOUND' || dnsErr.code === 'ENODATA') {
-        return { valid: false, error: `The email domain '@${domain}' does not exist or cannot receive mail.` };
-      }
+      return {
+        valid: false,
+        error: `The email domain '@${domain}' does not exist or cannot receive mail. Please enter a valid email address.`,
+      };
     }
 
     return { valid: true };
   } catch (err) {
-    return { valid: true };
+    return { valid: false, error: 'Failed to validate email address. Please check and try again.' };
   }
 }
 

@@ -18,6 +18,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { sounds } from '@/lib/sounds';
+import { validateEmail } from '@/lib/emailValidation';
 
 type LoginRole = 'STUDENT' | 'RECRUITER' | 'TPO';
 
@@ -54,8 +55,9 @@ export default function LoginPage() {
   // 1. Send OTP to Email
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!email || !email.includes('@')) {
-      return toast.error('Please enter a valid email address');
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.valid) {
+      return toast.error(emailCheck.error || 'Please enter a valid email address');
     }
 
     setLoading(true);

@@ -65,10 +65,9 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const res = await api.post('/api/auth/send-otp', { email, mode: 'register' });
-      sounds.playToggle();
+      setOtpCode(''); // Keep OTP input blank so user enters it manually
       if (res.data?.data?.devOtp) {
-        setOtpCode(res.data.data.devOtp);
-        toast.success(`Verification Code: ${res.data.data.devOtp}`, { duration: 12000 });
+        toast.error('Email delivery failed: Google SMTP password expired/revoked. Check console for details.', { duration: 8000 });
       } else {
         toast.success(`Verification code dispatched to ${email}`);
       }

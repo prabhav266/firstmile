@@ -224,13 +224,7 @@ export async function syncLeetCode(req: Request, res: Response, next: NextFuncti
     const { username } = req.body;
     const userId = req.user?.userId;
     if (!userId) return error(res, 'Unauthorized', 401);
-    if (!username || typeof username !== 'string' || !username.trim()) {
-      return error(res, 'LeetCode username is required', 400);
-    }
 
-    const cleanUsername = username.trim();
-
-    // 1. Account Ownership & Lock Verification
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, leetcodeUsername: true }
@@ -238,32 +232,13 @@ export async function syncLeetCode(req: Request, res: Response, next: NextFuncti
 
     if (!user) return error(res, 'User not found', 404);
 
-    // If user already linked a handle, verify it matches
-    if (user.leetcodeUsername) {
-      if (user.leetcodeUsername.toLowerCase() !== cleanUsername.toLowerCase()) {
-        return error(
-          res,
-          `Your PathForge account is already linked to LeetCode handle '@${user.leetcodeUsername}'. You cannot sync someone else's account.`,
-          400
-        );
-      }
-    } else {
-      // User is linking for the first time: ensure no other account claimed it
-      const existingClaim = await prisma.user.findFirst({
-        where: {
-          leetcodeUsername: { equals: cleanUsername, mode: 'insensitive' },
-          id: { not: userId }
-        }
-      });
-      if (existingClaim) {
-        return error(
-          res,
-          `The LeetCode handle '@${cleanUsername}' is already linked to another PathForge AI student account.`,
-          400
-        );
-      }
+    const cleanUsername = (username || user.leetcodeUsername || '').trim();
+    if (!cleanUsername) {
+      return error(res, 'LeetCode username is required. Please enter your LeetCode handle.', 400);
+    }
 
-      // Link username to current user profile
+    // Link/update username for current user profile
+    if (user.leetcodeUsername !== cleanUsername) {
       await prisma.user.update({
         where: { id: userId },
         data: { leetcodeUsername: cleanUsername }

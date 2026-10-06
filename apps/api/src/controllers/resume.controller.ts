@@ -16,7 +16,7 @@ export async function uploadResume(req: Request, res: Response, next: NextFuncti
     // Save to local storage
     const uploadResult = await storageService.upload(req.file, {
       folder: `resumes/${userId}`,
-      allowedFormats: ['pdf'],
+      allowedFormats: ['pdf', 'docx', 'doc'],
     });
 
     // Dynamically extract printable text from the uploaded PDF buffer

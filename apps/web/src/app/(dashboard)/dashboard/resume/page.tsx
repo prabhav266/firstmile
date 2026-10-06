@@ -107,9 +107,7 @@ export default function ResumePage() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('resume', file);
-      const res = await api.post('/api/resume/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/api/resume/upload', formData);
       return res.data?.data;
     },
     onSuccess: (newResume) => {

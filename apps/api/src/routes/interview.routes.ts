@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { start, submitAnswer, getFeedback, history } from '../controllers/interview.controller';
+import { start, submitAnswer, getFeedback, history, evaluateVoice } from '../controllers/interview.controller';
 import { protect } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -7,6 +7,7 @@ const router = Router();
 router.use(protect);
 
 router.post('/start', start);
+router.post('/evaluate-voice', evaluateVoice);
 router.post('/:id/answer', submitAnswer);
 router.post('/answer/:id', submitAnswer); // Alias for frontend request
 router.get('/:id/feedback', getFeedback);
@@ -15,3 +16,4 @@ router.get('/history', history); // Alias for frontend request
 router.get('/', history);
 
 export default router;
+

@@ -55,10 +55,20 @@ api.interceptors.response.use(
           }
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }
+        originalRequest._retry = true;
         return api(originalRequest);
       } catch (err) {
-        // Stale cookie / user no longer exists in DB
+        // Stale cookie / user no longer exists in DB / refresh token expired.
+        // IMPORTANT: clear the stale auth cookie + token first. The Next.js middleware
+        // treats a leftover cookie as "logged in" and would bounce /login -> /dashboard
+        // -> /login forever (infinite redirect loop that looks like a site crash).
         if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('auth-token');
+            document.cookie = 'auth-token=; path=/; max-age=0; SameSite=Lax';
+            document.cookie = 'auth-token=; path=/; max-age=0; SameSite=Lax; secure';
+            await fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
+          } catch (e) {}
           localStorage.removeItem('pathforge-career-os-gamification');
           if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register') && window.location.pathname !== '/') {
             window.location.href = '/login';

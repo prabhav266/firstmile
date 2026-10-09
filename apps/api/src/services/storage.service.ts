@@ -51,6 +51,22 @@ export class StorageService {
     };
   }
 
+  /**
+   * Read a previously stored file back from disk using its public URL
+   * (e.g. /uploads/resumes/<userId>/<uuid>.pdf). Returns null if missing
+   * or if the URL tries to escape the upload directory.
+   */
+  async readByUrl(fileUrl: string): Promise<Buffer | null> {
+    const relative = fileUrl.replace(/^\/?uploads\//, '');
+    const absolute = path.resolve(UPLOAD_DIR, relative);
+    if (!absolute.startsWith(path.resolve(UPLOAD_DIR) + path.sep)) return null;
+    try {
+      return await fs.promises.readFile(absolute);
+    } catch {
+      return null;
+    }
+  }
+
   async delete(publicId: string, folder?: string): Promise<void> {
     const folderPath = folder ? path.join(UPLOAD_DIR, folder) : UPLOAD_DIR;
     

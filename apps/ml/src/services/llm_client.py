@@ -1,41 +1,49 @@
 import google.generativeai as genai
 from src.core.config import settings
 
+def _gemini_enabled() -> bool:
+    key = (settings.GEMINI_API_KEY or "").strip()
+    # docker-compose defaults to "your-gemini-api-key" and .env.example uses "YOUR_GEMINI_API_KEY":
+    # treat any placeholder (case-insensitive, - or _) as "no key".
+    placeholder = key.lower().replace("-", "_") in ("", "your_gemini_api_key") or key.lower().startswith("your")
+    return not placeholder
+
+
 # Initialize Gemini
-if settings.GEMINI_API_KEY and "YOUR_GEMINI_API_KEY" not in settings.GEMINI_API_KEY:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+if _gemini_enabled():
+    genai.configure(api_key=settings.GEMINI_API_KEY.strip())
 else:
-    print("[WARNING] GEMINI_API_KEY is not set. Gemini services will mock output.")
+    print("[WARNING] GEMINI_API_KEY is not set. Resume/AI features will use the heuristic engine.")
 
-async def generate_text(prompt: str, temperature: float = 0.3) -> str:
-    """Generate content from Gemini LLM with dynamic heuristic fallback in services if key is absent"""
-    if not settings.GEMINI_API_KEY or "YOUR_GEMINI_API_KEY" in settings.GEMINI_API_KEY:
+async def generate_text(prompt: str, temperature: float = 0.3, json_mode: bool = False) -> str:
+    """Generate content from Gemini. Raises if no key / all models fail so callers can use their heuristic fallback."""
+    if not _gemini_enabled():
         raise ValueError("GEMINI_API_KEY is not set. Delegate to dynamic heuristic analyzer.")
-        
-    try:
-        model_names = [settings.GEMINI_MODEL, 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
-        model = None
-        for m_name in model_names:
-            try:
-                model = genai.GenerativeModel(m_name)
-                break
-            except Exception:
-                continue
 
-        if not model:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+    # GenerativeModel(...) never validates the name, so the previous "try each name" loop
+    # always picked the first (possibly retired) model. Try each model on the actual call instead.
+    candidates = []
+    for name in [settings.GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
+        if name and name not in candidates:
+            candidates.append(name)
 
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=8192,
+    config_kwargs = {"temperature": temperature, "max_output_tokens": 8192}
+    if json_mode:
+        config_kwargs["response_mime_type"] = "application/json"
+
+    last_error: Exception = RuntimeError("No Gemini model available")
+    for name in candidates:
+        try:
+            model = genai.GenerativeModel(name)
+            response = await model.generate_content_async(
+                prompt,
+                generation_config=genai.types.GenerationConfig(**config_kwargs),
             )
-        )
-        return response.text
-    except Exception as e:
-        print(f"[Gemini Client Error] LLM generation failed: {e}")
-        raise e
+            return response.text
+        except Exception as e:  # try the next model
+            print(f"[Gemini Client] model '{name}' failed: {e}")
+            last_error = e
+    raise last_error
 
 def get_mock_response(prompt: str) -> str:
     """Fallback mock generator matching expected JSON shapes in prompts"""

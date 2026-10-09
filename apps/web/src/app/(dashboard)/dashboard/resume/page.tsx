@@ -67,6 +67,21 @@ function ScoreGauge({
   );
 }
 
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  const e = err as { response?: { data?: { message?: string } }; code?: string; message?: string };
+  if (e?.code === 'ECONNABORTED') return 'Analysis timed out. Please try again.';
+  return e?.response?.data?.message || fallback;
+}
+
+function validateResumeFile(file: File): string | null {
+  const name = file.name.toLowerCase();
+  if (!name.endsWith('.pdf') && !name.endsWith('.docx')) return 'Please upload a PDF or DOCX file.';
+  if (file.size > MAX_FILE_BYTES) return 'File is too large. Maximum size is 5MB.';
+  return null;
+}
+
 const parseProject = (proj: string) => {
   const colonIndex = proj.indexOf(':');
   if (colonIndex !== -1) {
@@ -103,33 +118,49 @@ export default function ResumePage() {
   const activeResumeId = selectedResumeId || (resumes.length > 0 ? resumes[0]?.id : null);
   const selectedResume = resumes.find((r) => r.id === activeResumeId);
 
+  const analyzeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // LLM analysis can take a while; don't let axios give up early.
+      const res = await api.post(`/api/resume/${id}/analyze`, {}, { timeout: 90000 });
+      return res.data?.data as Resume;
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['resumes'] }),
+    onSuccess: () => toast.success('Analysis complete'),
+    onError: (err) => toast.error(getErrorMessage(err, 'Analysis failed. Please try again.')),
+  });
+
+  // Upload, then immediately analyse. Previously only the upload ran, so every resume
+  // stayed PENDING with null scores — which the UI rendered as 0 / "all good".
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('resume', file);
       const res = await api.post('/api/resume/upload', formData);
-      return res.data?.data;
+      return res.data?.data as Resume;
     },
-    onSuccess: (newResume) => {
+    onSuccess: async (newResume) => {
       queryClient.invalidateQueries({ queryKey: ['resumes'] });
       setSelectedFile(null);
-      if (newResume?.id) setSelectedResumeId(newResume.id);
-      toast.success('Resume uploaded successfully');
+      if (newResume?.id) {
+        setSelectedResumeId(newResume.id);
+        toast.success('Resume uploaded — analysing...');
+        analyzeMutation.mutate(newResume.id);
+      }
     },
-    onError: () => toast.error('Upload failed. Please upload a PDF or DOCX under 5MB.'),
+    onError: (err) => toast.error(getErrorMessage(err, 'Upload failed. Please upload a PDF or DOCX under 5MB.')),
   });
 
-  const triggerAnalysis = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await api.post(`/api/resume/${id}/analyze`);
-      return res.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['resumes'] });
-      toast.success('Analysis refreshed');
-    },
-    onError: () => toast.error('Failed to trigger analysis'),
-  });
+  const isAnalyzing = analyzeMutation.isPending || uploadMutation.isPending;
+
+  const pickFile = (file?: File) => {
+    if (!file) return;
+    const problem = validateResumeFile(file);
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
+    setSelectedFile(file);
+  };
 
   const handleDownloadReport = async (resumeId: string, fileName: string) => {
     try {
@@ -157,7 +188,7 @@ export default function ResumePage() {
     e.preventDefault();
     setIsDragOver(false);
     const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) setSelectedFile(files[0]);
+    pickFile(files[0]);
   }, []);
 
   return (
@@ -216,9 +247,12 @@ export default function ResumePage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.docx,.doc"
+              accept=".pdf,.docx"
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && setSelectedFile(e.target.files[0])}
+              onChange={(e) => {
+                pickFile(e.target.files?.[0]);
+                e.target.value = ''; // allow re-selecting the same file
+              }}
             />
 
             {selectedFile ? (
@@ -228,11 +262,11 @@ export default function ResumePage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => uploadMutation.mutate(selectedFile)}
-                    disabled={uploadMutation.isPending}
+                    disabled={isAnalyzing}
                     className="btn-primary py-1.5 px-4 text-xs gap-1.5"
                   >
-                    {uploadMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                    <span>Run ATS Audit</span>
+                    {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                    <span>{isAnalyzing ? 'Analysing...' : 'Run ATS Audit'}</span>
                   </button>
                   <button onClick={() => setSelectedFile(null)} className="btn-secondary py-1.5 px-3 text-xs">
                     Cancel
@@ -271,14 +305,42 @@ export default function ResumePage() {
                       : 'bg-[#080808] text-[#888888] border-[#242424] hover:text-[#ffffff]'
                   }`}
                 >
-                  {r.fileName} • {r.atsScore || 0}% ATS
+                  {r.fileName} • {r.analysisStatus === 'COMPLETED' ? `${Math.round(r.atsScore ?? 0)}% ATS` : r.analysisStatus === 'FAILED' ? 'Failed' : 'Not analysed'}
                 </button>
               ))}
             </div>
           )}
 
           {/* Selected Resume Audit Results */}
-          {selectedResume && (
+          {selectedResume && selectedResume.analysisStatus !== 'COMPLETED' && (
+            <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-8 flex flex-col items-center text-center gap-3">
+              {isAnalyzing && activeResumeId === selectedResume.id ? (
+                <>
+                  <Loader2 className="w-6 h-6 text-[#ffffff] animate-spin" />
+                  <p className="text-xs font-mono text-[#b5b5b5]">Reading your resume and running the ATS audit...</p>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-6 h-6 text-[#888888]" />
+                  <p className="text-xs font-mono text-[#b5b5b5]">
+                    {selectedResume.analysisStatus === 'FAILED'
+                      ? 'The last analysis of this resume failed.'
+                      : 'This resume has not been analysed yet.'}
+                  </p>
+                  <button
+                    onClick={() => analyzeMutation.mutate(selectedResume.id)}
+                    disabled={isAnalyzing}
+                    className="btn-primary py-1.5 px-4 text-xs gap-1.5"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>{selectedResume.analysisStatus === 'FAILED' ? 'Retry analysis' : 'Run analysis'}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {selectedResume && selectedResume.analysisStatus === 'COMPLETED' && (
             <div className="space-y-6">
               {/* Score Gauges */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -338,6 +400,14 @@ export default function ResumePage() {
 
               {/* Download Report Button */}
               <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => analyzeMutation.mutate(selectedResume.id)}
+                  disabled={isAnalyzing}
+                  className="btn-secondary py-2 px-4 text-xs gap-1.5"
+                >
+                  {analyzeMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>Re-analyse</span>
+                </button>
                 <button
                   onClick={() => handleDownloadReport(selectedResume.id, selectedResume.fileName)}
                   disabled={downloadingReport}

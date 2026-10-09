@@ -3,8 +3,8 @@ from pydantic_settings import BaseSettings
 from typing import List, Union
 
 class Settings(BaseSettings):
-    GEMINI_API_KEY: str = "YOUR_GEMINI_API_KEY"
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_API_KEY: str = "AQ.Ab8RN6JunIXJSf4heFQyCLAS4imre2ophmMgIaYHCdwsIpFQfg"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     JWT_SECRET: str = "pathforge-super-secret-access-token-key-32-chars-long"
     ALLOWED_ORIGINS: str = '["http://localhost:3000","http://localhost:4000"]'
     PORT: int = 8000

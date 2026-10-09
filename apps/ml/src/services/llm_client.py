@@ -22,12 +22,13 @@ async def generate_text(prompt: str, temperature: float = 0.3, json_mode: bool =
 
     # GenerativeModel(...) never validates the name, so the previous "try each name" loop
     # always picked the first (possibly retired) model. Try each model on the actual call instead.
-    candidates = []
-    for name in [settings.GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
+        candidates = []
+    for name in [settings.GEMINI_MODEL, "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash"]:
         if name and name not in candidates:
             candidates.append(name)
 
-    config_kwargs = {"temperature": temperature, "max_output_tokens": 8192}
+    # Gemini 3.x: Google no longer recommends setting temperature/top_p/top_k, so we leave them at defaults.
+    config_kwargs = {"max_output_tokens": 8192}
     if json_mode:
         config_kwargs["response_mime_type"] = "application/json"
 

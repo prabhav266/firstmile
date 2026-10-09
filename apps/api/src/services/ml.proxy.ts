@@ -4,64 +4,126 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 const mlClient = axios.create({
   baseURL: `${ML_SERVICE_URL}/api/v1`,
-  timeout: 3500, // 3.5s timeout: if ML microservice is offline, gracefully fall back to heuristics
+  timeout: 3500, // default for quick endpoints; resume analysis overrides this (LLM calls are slow)
 });
 
 // ==========================================
 // 1. RESUME ANALYZER (ATS & Skill Auditing)
 // ==========================================
-export async function analyzeResume(rawText: string, jobRole: string) {
+export interface ResumeAnalysisResult {
+  ats_score: number;
+  grammar_score: number; // 0-10
+  resume_rating: number; // 0-10
+  missing_skills: string[];
+  weak_bullets: string[];
+  suggestions: string[];
+  project_suggestions: string[];
+}
+
+// LLM calls (Gemini) routinely take 5-30s. The old 3.5s timeout always tripped,
+// silently dropping every analysis onto the generic fallback below.
+const RESUME_ML_TIMEOUT_MS = 60_000;
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasTerm(text: string, term: string) {
+  // word-boundary match so "java" doesn't match "javascript", "sql" doesn't match "postgresql", etc.
+  return new RegExp(`(?<![a-z0-9])${escapeRegex(term)}(?![a-z0-9])`, 'i').test(text);
+}
+
+const SKILL_LABELS: Record<string, string> = {
+  aws: 'AWS', sql: 'SQL', postgresql: 'PostgreSQL', mongodb: 'MongoDB', graphql: 'GraphQL', 'ci/cd': 'CI/CD',
+  'rest api': 'REST API', 'node.js': 'Node.js', 'next.js': 'Next.js', javascript: 'JavaScript', typescript: 'TypeScript',
+};
+const prettySkill = (k: string) => SKILL_LABELS[k] || k.replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Deterministic fallback used only if the Python ML service is unreachable. */
+export function heuristicResumeAnalysis(rawText: string, jobRole: string): ResumeAnalysisResult {
+  const text = rawText || '';
+  const lower = text.toLowerCase();
+  const wordCount = (lower.match(/[a-z0-9+#.]+/g) || []).length;
+
+  const skillBank = [
+    'python', 'java', 'javascript', 'typescript', 'react', 'node.js', 'express', 'sql', 'postgresql',
+    'mongodb', 'git', 'docker', 'aws', 'rest api', 'graphql', 'redis', 'ci/cd', 'kubernetes',
+    'data structures', 'algorithms', 'system design', 'next.js', 'tailwind',
+  ];
+  const found = skillBank.filter((k) => hasTerm(lower, k));
+  const missing = skillBank.filter((k) => !hasTerm(lower, k));
+
+  const hasSection = (...names: string[]) => names.some((n) => hasTerm(lower, n));
+  const sectionHits = [
+    hasSection('experience', 'internship', 'work history'),
+    hasSection('education'),
+    hasSection('skills', 'technical skills'),
+    hasSection('projects', 'project'),
+  ].filter(Boolean).length;
+
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  const wordsIn = (l: string) => l.split(/\s+/).filter(Boolean).length;
+  const bulletLines = lines.filter((l) => /^[•\-*–]/.test(l) || (wordsIn(l) >= 9 && l.length < 260 && !/[|@]/.test(l)));
+  const quantified = bulletLines.filter((l) => /\d+\s*(%|\+|x\b|ms\b|k\b|users|requests|seconds)|\$\s?\d|\b\d{2,}\b/i.test(l));
+  const weakStart = /^(?:[•\-*–]\s*)?(responsible for|worked on|helped|assisted|involved in|handled|did|made|tried)\b/i;
+  const weakBullets = bulletLines
+    .filter((l) => weakStart.test(l) || !quantified.includes(l))
+    .slice(0, 4)
+    .map((l) => (l.length > 140 ? l.slice(0, 137) + '...' : l));
+
+  const metricRatio = bulletLines.length ? quantified.length / bulletLines.length : 0;
+
+  let ats = 30;
+  ats += Math.min(30, (found.length / 12) * 30); // keyword coverage
+  ats += sectionHits * 5; // standard sections present (max 20)
+  ats += Math.min(10, metricRatio * 20); // quantified impact
+  if (wordCount >= 250) ats += 10;
+  else if (wordCount >= 120) ats += 5;
+  if (wordCount < 150) ats = Math.min(ats, 70); // a very short resume cannot be 'ATS-strong'
+  ats = Math.round(Math.min(95, Math.max(20, ats)));
+
+  // Grammar/formatting (0-10): simple, honest signals only.
+  let grammar = 9;
+  if (/ {3,}/.test(rawText)) grammar -= 0.5;
+  const lowercaseStarts = lines.filter((l) => /^[a-z]/.test(l) && l.length > 40).length;
+  grammar -= Math.min(2, lowercaseStarts * 0.3);
+  if (sectionHits < 3) grammar -= 1;
+  grammar = Math.max(4, Math.round(grammar * 10) / 10);
+
+  const rating = Math.round(Math.min(10, Math.max(1, ats / 10 * 0.8 + grammar * 0.2)) * 10) / 10;
+
+  const suggestions: string[] = [];
+  if (missing.length) suggestions.push(`Add relevant keywords for ${jobRole} where you genuinely have the experience: ${missing.slice(0, 4).map(prettySkill).join(', ')}.`);
+  if (metricRatio < 0.4) suggestions.push('Quantify more bullets (e.g. "Reduced API latency by 35%", "served 2,000+ users").');
+  if (sectionHits < 4) suggestions.push('Use standard section headings so ATS parsers can find them: Education, Skills, Projects, Experience.');
+  if (wordCount < 150) suggestions.push('Your resume is very short — expand project bullets with the problem, your approach and the result.');
+  suggestions.push('Keep a single-column layout without tables, text boxes or images.');
+
+  return {
+    ats_score: ats,
+    grammar_score: grammar,
+    resume_rating: rating,
+    missing_skills: missing.slice(0, 6).map(prettySkill),
+    weak_bullets: weakBullets,
+    suggestions,
+    project_suggestions: [
+      `Production-style ${jobRole} project: REST API + database + Docker + deployed live demo`,
+      'Rate-limited API gateway with Redis caching and load tests',
+    ],
+  };
+}
+
+export async function analyzeResume(rawText: string, jobRole: string): Promise<ResumeAnalysisResult> {
   try {
-    const response = await mlClient.post('/resume/analyze', {
-      raw_text: rawText,
-      job_role: jobRole,
-    });
+    const response = await mlClient.post(
+      '/resume/analyze',
+      { raw_text: rawText, job_role: jobRole },
+      { timeout: RESUME_ML_TIMEOUT_MS }
+    );
     return response.data;
   } catch (err: any) {
-    console.warn('[ML Proxy] Python ML service unreachable, using intelligent ATS heuristics engine');
-
-    const text = (rawText || '').toLowerCase();
-    const commonKeywords = [
-      'react', 'node.js', 'typescript', 'javascript', 'python', 'sql', 'postgresql',
-      'docker', 'aws', 'graphql', 'mongodb', 'ci/cd', 'git', 'rest api', 'tailwind',
-      'next.js', 'redis', 'kubernetes', 'data structures', 'algorithms'
-    ];
-
-    const matchedKeywords = commonKeywords.filter(k => text.includes(k));
-    const missingSkills = commonKeywords.filter(k => !text.includes(k)).slice(0, 5);
-
-    // Dynamic ATS score calculation
-    let calculatedAts = 65;
-    if (text.length > 500) calculatedAts += 10;
-    if (text.includes('experience') || text.includes('internship') || text.includes('projects')) calculatedAts += 10;
-    calculatedAts += Math.min(15, matchedKeywords.length * 2);
-    calculatedAts = Math.min(96, Math.max(62, calculatedAts));
-
-    const weakBullets = [
-      'Bullets lacking quantified impact (e.g., mention metrics like "% latency reduction" or "X concurrent users").',
-      'Action verbs could be stronger: consider replacing "Worked on" with "Engineered", "Architected", or "Spearheaded".',
-    ];
-
-    const suggestions = [
-      `Add explicit sections for System Design and Cloud infrastructure relevant to ${jobRole}.`,
-      'Ensure standard single-column ATS layout without tables or complex graphics.',
-      'Quantify results in project bullet points with measurable outcomes.',
-    ];
-
-    const projectSuggestions = [
-      'High-throughput distributed task queue with Redis & PostgreSQL',
-      'Full-stack real-time collaboration canvas with WebSockets & Next.js',
-    ];
-
-    return {
-      ats_score: calculatedAts,
-      grammar_score: 92.0,
-      resume_rating: calculatedAts >= 85 ? 'STRONG' : calculatedAts >= 75 ? 'GOOD' : 'NEEDS_OPTIMIZATION',
-      missing_skills: missingSkills,
-      weak_bullets: weakBullets,
-      suggestions,
-      project_suggestions: projectSuggestions,
-    };
+    console.warn(`[ML Proxy] Resume ML service failed (${err?.code || err?.message}); using heuristic engine`);
+    return heuristicResumeAnalysis(rawText, jobRole);
   }
 }
 

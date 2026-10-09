@@ -3,6 +3,14 @@ import { prisma } from '../lib/prisma';
 import { success, error } from '../lib/response';
 import { storageService } from '../services/storage.service';
 import { analyzeResume } from '../services/ml.proxy';
+import { extractResumeText, ResumeParseError, MIN_RESUME_TEXT_LENGTH } from '../services/resume-parser.service';
+
+const clamp = (n: unknown, min: number, max: number, fallback: number) => {
+  const v = typeof n === 'number' ? n : parseFloat(String(n));
+  return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+};
+const toStringArray = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean) : [];
 
 export async function uploadResume(req: Request, res: Response, next: NextFunction) {
   try {
@@ -13,26 +21,21 @@ export async function uploadResume(req: Request, res: Response, next: NextFuncti
       return error(res, 'No resume PDF file uploaded', 400);
     }
 
+    // Extract real text FIRST so an unreadable file is rejected with a clear message
+    // instead of being saved and scored as 0.
+    let rawText: string;
+    try {
+      rawText = await extractResumeText(req.file.buffer, req.file.originalname);
+    } catch (e) {
+      if (e instanceof ResumeParseError) return error(res, e.message, e.statusCode);
+      throw e;
+    }
+
     // Save to local storage
     const uploadResult = await storageService.upload(req.file, {
       folder: `resumes/${userId}`,
-      allowedFormats: ['pdf', 'docx', 'doc'],
+      allowedFormats: ['pdf', 'docx'],
     });
-
-    // Dynamically extract printable text from the uploaded PDF buffer
-    let extractedText = '';
-    if (req.file.buffer) {
-      const asciiText = req.file.buffer
-        .toString('ascii')
-        .replace(/[^\x20-\x7E\n]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (asciiText.length > 50) {
-        extractedText = asciiText.slice(0, 4000);
-      }
-    }
-
-    const rawText = extractedText || `Resume File: ${req.file.originalname}. Candidate: ${req.user?.name || 'Applicant'}. Target Role: Software Engineer.`;
 
     const resume = await prisma.resume.create({
       data: {
@@ -69,13 +72,53 @@ export async function triggerAnalysis(req: Request, res: Response, next: NextFun
     });
 
     try {
-      const analysisResult = await analyzeResume(resume.rawText || '', jobRole || 'Software Engineer');
+      // Resumes uploaded before the parser fix have garbage rawText (ASCII-stripped binary).
+      // Re-read the stored file and extract real text so they can be re-analysed properly.
+      let rawText = resume.rawText || '';
+      const looksBroken =
+        rawText.length < MIN_RESUME_TEXT_LENGTH ||
+        /Resume File: .*Candidate:/.test(rawText) ||
+        /%PDF-|endobj|\/FlateDecode|PK\s?\u0003/.test(rawText) ||
+        !rawText.includes('\n');
+      if (looksBroken && resume.fileUrl) {
+        const stored = await storageService.readByUrl(resume.fileUrl);
+        if (stored) {
+          try {
+            rawText = await extractResumeText(stored, resume.fileName);
+            await prisma.resume.update({ where: { id }, data: { rawText } });
+          } catch (e) {
+            if (e instanceof ResumeParseError) {
+              await prisma.resume.update({ where: { id }, data: { analysisStatus: 'FAILED' } });
+              return error(res, e.message, e.statusCode);
+            }
+            throw e;
+          }
+        }
+      }
+
+      const rawAnalysis = await analyzeResume(rawText, jobRole || 'Software Engineer');
+      const analysisResult = {
+        ats_score: clamp(rawAnalysis.ats_score, 0, 100, 0),
+        grammar_score: clamp(rawAnalysis.grammar_score, 0, 10, 0),
+        resume_rating: clamp(rawAnalysis.resume_rating, 0, 10, 0),
+        missing_skills: toStringArray(rawAnalysis.missing_skills),
+        weak_bullets: toStringArray(rawAnalysis.weak_bullets),
+        suggestions: toStringArray(rawAnalysis.suggestions),
+        project_suggestions: toStringArray(rawAnalysis.project_suggestions),
+      };
 
       // Update skill levels on student profile based on resume analysis
       const allPossibleSkills = ['JavaScript', 'React', 'Data Structures & Algorithms', 'Python', 'SQL', 'TypeScript', 'Node.js', 'PostgreSQL', 'Docker', 'AWS'];
-      const rawTextLower = (resume.rawText || '').toLowerCase();
+      const rawTextLower = rawText.toLowerCase();
+      const skillAliases: Record<string, string[]> = {
+        'Data Structures & Algorithms': ['data structures', 'algorithms', 'dsa'],
+      };
       for (const sName of allPossibleSkills) {
-        if (rawTextLower.includes(sName.toLowerCase())) {
+        const terms = skillAliases[sName] || [sName.toLowerCase()];
+        const present = terms.some((t) =>
+          new RegExp(`(?<![a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`).test(rawTextLower)
+        );
+        if (present) {
           const skill = await prisma.skill.findFirst({ where: { name: { equals: sName, mode: 'insensitive' } } });
           if (skill) {
             await prisma.userSkill.upsert({
